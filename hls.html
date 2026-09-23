@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>HLS 解析引擎</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        html, body { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; background: #000; }
+        .player-container { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        video { width: 100%; height: 100%; object-fit: contain; outline: none; }
+        .player-status { position: absolute; top: 10px; left: 10px; color: #ff3358; background: rgba(0, 0, 0, 0.7); padding: 6px 12px; font-size: 13px; border-radius: 4px; display: none; z-index: 10; max-width: 90%; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div id="status" class="player-status"></div>
+        <video id="video" autoplay playsinline controls></video>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const videoSrc = urlParams.get('url');
+        const video = document.getElementById('video');
+        const statusEl = document.getElementById('status');
+        let hls = null;
+
+        function showStatus(msg) {
+            statusEl.innerText = msg;
+            statusEl.style.display = 'block';
+        }
+
+        window.addEventListener('message', (e) => {
+            if (!e.data) return;
+            if (e.data.type === 'set-speed') {
+                video.playbackRate = e.data.speed;
+            } else if (e.data.type === 'toggle-play') {
+                if (video.paused) video.play(); else video.pause();
+            }
+        });
+
+        video.addEventListener('play', () => window.parent.postMessage({ type: 'video-state', state: 'play' }, '*'));
+        video.addEventListener('pause', () => window.parent.postMessage({ type: 'video-state', state: 'pause' }, '*'));
+        video.addEventListener('loadedmetadata', () => {
+            const isPortrait = video.videoHeight > video.videoWidth;
+            window.parent.postMessage({ type: 'video-meta', isPortrait }, '*');
+        });
+
+        if (videoSrc) {
+            if (Hls.isSupported()) {
+                // 配置 hls.js 允许处理跨域及相对路径
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    pLoader: function() {
+                        const loader = new Hls.DefaultConfig.loader();
+                        this.load = function(context, config, callbacks) {
+                            const originalSuccess = callbacks.onSuccess;
+                            callbacks.onSuccess = function(response, stats, context) {
+                                if (context.type === 'manifest' && typeof response.data === 'string') {
+                                    const baseUrl = context.url.substring(0, context.url.lastIndexOf('/') + 1);
+                                    response.data = response.data.split('\n').map(line => {
+                                        line = line.trim();
+                                        if (line && !line.startsWith('#') && !line.startsWith('http')) {
+                                            return baseUrl + line;
+                                        }
+                                        return line;
+                                    }).join('\n');
+                                }
+                                originalSuccess(response, stats, context);
+                            };
+                            loader.load.call(this, context, config, callbacks);
+                        };
+                        this.abort = function() { loader.abort.call(this); };
+                        this.destroy = function() { loader.destroy.call(this); };
+                    }
+                });
+
+                hls.loadSource(videoSrc);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(() => {});
+                });
+
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                // 遇到跨域或网络错误时，提示并尝试切换到公共解析
+                                showStatus('触发浏览器CORS跨域限制，请切换至【公共解析】线路播放');
+                                window.parent.postMessage({ type: 'hls-error', details: data.details }, '*');
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = videoSrc;
+                video.addEventListener('loadedmetadata', () => {
+                    video.play().catch(() => {});
+                });
+            }
+        }
+    </script>
+</body>
+</html>
