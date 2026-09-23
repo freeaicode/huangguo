@@ -9,10 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
     <style>
-        /* ==================== 继承自 huangguo-1.41 的全局样式 ==================== */
+        /* ==================== 全局暗黑移动端样式 ==================== */
         :root{--bg:#0b0c10;--card:#151821;--card2:#1f2432;--line:#2a3040;--pink:#ff3358;--text:#f8fafc;--muted:#9aa1b2;--dim:#626a7e}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-        body{margin:0 auto;max-width:500px;min-height:100vh;background:var(--bg);color:var(--text);font:14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+        body{margin:0 auto;max-width:500px;min-height:100vh;background:var(--bg);color:var(--text);font:14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; overflow-x:hidden;}
         
         .view{display:none}
         .view.active{display:block}
@@ -28,9 +28,8 @@
         .search input{flex:1;min-width:0;color:#fff;background:transparent;border:0;outline:0}
         .search button{color:var(--pink);border:0;background:transparent;font-weight:700}
         
-        .tabs,.episodes{display:flex;gap:8px;overflow:auto}
-        .tabs{padding-top:9px}
-        .tabs::-webkit-scrollbar,.episodes::-webkit-scrollbar{display:none}
+        .tabs{display:flex;gap:8px;overflow:auto;padding-top:9px;}
+        .tabs::-webkit-scrollbar{display:none}
         .tab{white-space:nowrap;padding:5px 12px;border-radius:16px;background:transparent;border-color:transparent}
         .tab.active,.route.active{color:#fff;background:var(--pink);border-color:var(--pink)}
         
@@ -48,57 +47,50 @@
         .loading,.error{text-align:center;padding:50px 10px;color:var(--muted)}
         .error{color:#f87171}
         
-        /* 播放页样式 */
-        .nav{position:sticky;top:0;z-index:31;display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 12px;background:rgba(11,12,16,.95);border-bottom:1px solid var(--line)}
-        .back{font-weight:600;cursor:pointer}
-        .navtitle{max-width:230px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        /* ==================== 播放页核心样式重构 (高度还原官方移动端) ==================== */
         
-        .player{position:sticky;top:48px;z-index:20;overflow:hidden;background:#000; display:flex; justify-content:center; align-items:center;}
+        /* 导航吸顶 */
+        .nav{position:sticky;top:0;z-index:31;display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 12px;background:rgba(11,12,16,.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+        .back{font-weight:600;cursor:pointer; display:flex; align-items:center; gap:2px;}
+        .navtitle{max-width:200px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; font-size:15px;}
         
-        /* 【关键修改1：动态纵横比例设定】 */
+        /* 视频容器吸顶，向下滑动时视频始终悬浮可见 */
+        .player{position:sticky;top:48px;z-index:20;overflow:hidden;background:#000;border-bottom:1px solid var(--line);}
+        
+        /* 横屏默认 55vh */
         .player video, .player iframe {
-            display: none;
-            width: 100%;
-            height: auto;
-            aspect-ratio: 16 / 9; /* 默认横屏比例 */
-            max-height: 580px;
-            border: 0;
-            object-fit: contain;
+            display: none; width: 100%; height: 55vh; max-height: 580px; border: 0; object-fit: contain;
         }
-        /* 竖屏 9:16 满屏占比限制，最高 75vh 保证下方按键不被挤出屏幕 */
+        /* 竖屏动态加高至 70vh，让沉浸感更强 */
         .player.portrait video, .player.portrait iframe {
-            aspect-ratio: 9 / 16;
-            max-height: 75vh;
-            object-fit: cover; /* cover 保证竖屏完美撑满框 */
+            height: 70vh; max-height: 75vh;
         }
         
         /* 网页全屏 */
-        .full{position:absolute;z-index:4;right:10px;top:10px;padding:5px 9px;color:#fff;background:rgba(0,0,0,.65);border:1px solid #555;border-radius:15px;font-size:11px}
+        .full{position:absolute;z-index:24;right:10px;top:10px;padding:5px 9px;color:#fff;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.2);border-radius:15px;font-size:11px}
         .player.webfull{position:fixed;inset:0;top:0;z-index:9999;width:100vw;height:100dvh}
         .player.webfull video, .player.webfull iframe {
-            width: 100% !important;
-            height: 100% !important;
-            max-height: none !important;
-            aspect-ratio: auto !important;
-            object-fit: contain; 
-            background: #000 !important;
-        }
-        /* 竖屏网页全屏状态且设备本身也是竖向时，强行盖满全屏幕 */
-        @media (max-aspect-ratio: 1/1) {
-            .player.webfull.portrait video, .player.webfull.portrait iframe {
-                object-fit: cover;
-            }
+            width: 100% !important; height: 100% !important; max-height: none !important; object-fit: contain !important; background: #000 !important;
         }
         
+        /* 状态与线路切换 (紧贴视频下方) */
         .debug{padding:8px 12px;overflow:hidden;color:var(--muted);background:#141722;font-size:12px;word-break:break-all;}
-        .routes{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--card); flex-wrap:wrap;}
-        .routes small{font-size:11px;color:var(--dim);white-space:nowrap; width:100%; margin-bottom:4px;}
+        .routes{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--bg); border-bottom:1px solid var(--card);}
         .route{padding:6px 12px;border-radius:12px;font-size:11px; flex:1; text-align:center;}
         
-        .detail{padding:12px}
-        .detail h1{margin:0 0 10px;font-size:16px}
-        .episodes{flex-wrap: wrap;}
-        .episodes button{min-width:46px;height:38px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:6px; margin-bottom:8px;}
+        /* 详情与选集交互区 */
+        .detail{padding:12px; background:var(--bg);}
+        .detail h1{margin:0 0 12px;font-size:17px; font-weight:800; line-height:1.4;}
+        
+        /* 上下集切换按钮组 */
+        .actions2{display:flex;gap:10px;margin-bottom:15px;}
+        .actions2 button{flex:1;padding:10px;color:#fff;background:var(--card2);border:1px solid var(--line);border-radius:8px; font-size:14px; font-weight:600; transition:all 0.2s;}
+        .actions2 button:active{transform:scale(0.97); background:var(--line);}
+        
+        /* 横向滑动选集 (移动端原生体验) */
+        .episodes{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px; scroll-behavior: smooth;}
+        .episodes::-webkit-scrollbar{display:none} /* 隐藏系统滚动条 */
+        .episodes button{flex-shrink:0; min-width:54px;height:42px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:8px; font-size:14px; font-weight:600;}
         .episodes button.active{color:#fff;background:var(--pink);border-color:var(--pink)}
     </style>
 </head>
@@ -135,29 +127,32 @@
     <!-- 独立播放页视图 -->
     <section id="player-view" class="view">
         <nav class="nav">
-            <span class="back" onclick="navToHome()">‹ 返回主页</span>
-            <span id="playerTitle" class="navtitle">剧集加载中...</span>
-            <span></span>
+            <span class="back" onclick="navToHome()">‹ 返回</span>
+            <span id="navTitle" class="navtitle">短剧播放</span>
+            <span style="width: 40px;"></span> <!-- 占位平衡居中 -->
         </nav>
         
         <div id="video-container" class="player">
-            <button id="webFsBtn" class="full" onclick="toggleWebFullscreen()">⛶ 网页全屏</button>
-            <video id="videoPlayer" controls playsinline></video>
+            <button id="webFsBtn" class="full" onclick="toggleWebFullscreen()">⛶ 全屏</button>
+            <video id="videoPlayer" controls playsinline webkit-playsinline x5-playsinline></video>
             <iframe id="iframePlayer" allow="autoplay;fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
+        </div>
+        
+        <div class="routes" id="routeBar">
+            <button class="route active" onclick="switchRoute(0)">原生直连</button>
+            <button class="route" onclick="switchRoute(1)">公共解析1</button>
+            <button class="route" onclick="switchRoute(2)">内置HLS</button>
+            <button class="route" onclick="switchRoute(3)">公共解析3</button>
         </div>
         
         <div id="debugText" class="debug">等待获取播放源...</div>
         
-        <div class="routes" id="routeBar">
-            <small>播放线路切换 (无法播放时请尝试右侧线路):</small>
-            <button class="route active" onclick="switchRoute(0)">原生直连</button>
-            <button class="route" onclick="switchRoute(1)">公共解析 1</button>
-            <button class="route" onclick="switchRoute(2)">内置HLS解析</button>
-            <button class="route" onclick="switchRoute(3)">公共解析 3</button>
-        </div>
-        
         <div class="detail">
-            <h1>剧集选集</h1>
+            <h1 id="playerDetailTitle">剧集加载中...</h1>
+            <div class="actions2">
+                <button onclick="step(-1)">上一集</button>
+                <button onclick="step(1)">下一集</button>
+            </div>
             <div id="epList" class="episodes"></div>
         </div>
     </section>
@@ -173,50 +168,22 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
     <style>
-        /* 强制隐藏滚动条，严格锁定尺寸 */
-        html, body { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; }
-        
+        html { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; }
         body { 
+            height: 100%; 
             background: url(https://os.i.gtimg.cn/music/photo_new/T053XD01004EceXk15WTMG.png) no-repeat; 
             background-size: 100% 100%; 
-            color: #fff; 
-            display: table; 
-            width: 100%;
-            height: 100%;
-            user-select: none; 
-            box-sizing: border-box; 
-            font: lighter 24px "微软雅黑"; 
-            padding: 1em; 
+            color: #fff; margin: auto; padding: 1em; display: table; width: 100%;
+            user-select: none; box-sizing: border-box; font: lighter 24px "微软雅黑"; 
         }
-        
         main { 
-            display: table-cell; 
-            vertical-align: middle; 
-            text-align: center; 
-            position: relative; 
-            width: 100%; 
-            height: 100%; 
+            margin: 0 auto; text-align: center; display: table-cell; vertical-align: middle; width: 100%; height: 100%;
         }
-        
         .video-wrapper {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            width: 100%; 
-            height: 100%;
+            position: relative; width: 100%; height: calc(100vh - 2em); display: flex; justify-content: center; align-items: center;
         }
-
         video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: contain; 
-            outline: none; 
-        }
-        
-        /* 内部响应 iframe 尺寸：iframe 是竖直时(短剧)，应用 cover 撑满无黑边 */
-        @media (max-aspect-ratio: 1/1) {
-            video.is-portrait {
-                object-fit: cover;
-            }
+            max-width: 100%; max-height: 100%; object-fit: contain; outline: none; 
         }
     </style>
 </head>
@@ -224,12 +191,10 @@
     <main>
         <div class="video-wrapper">
             <div id="status-container" class="absolute top-4 left-4 right-4 z-20 hidden p-3 rounded-md text-sm border shadow-lg bg-black/80 text-white break-all text-center"></div>
-
             <div id="loading-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 hidden">
                 <div class="w-10 h-10 border-4 border-gray-600 border-t-white rounded-full animate-spin mb-3"></div>
                 <span class="text-gray-300 font-medium text-xs">加载中...</span>
             </div>
-
             <video id="video-player" controls playsinline></video>
         </div>
     </main>
@@ -253,15 +218,8 @@
                 show ? loadingOverlay.classList.remove('hidden') : loadingOverlay.classList.add('hidden');
             };
 
-            /* 【关键修改2：获取元数据后，利用 postMessage 向父页面发送宽高信息】 */
             video.addEventListener('loadedmetadata', function() {
                 const isPort = this.videoHeight > this.videoWidth;
-                if (isPort) {
-                    this.classList.add('is-portrait');
-                } else {
-                    this.classList.remove('is-portrait');
-                }
-                // 把竖屏状态发送给外部的 hg-4
                 window.parent.postMessage({ type: 'video-meta', isPortrait: isPort }, '*');
             });
 
@@ -307,7 +265,7 @@
                     });
                 } else {
                     toggleLoading(false);
-                    showStatus('当前浏览器不支持 HLS 播放');
+                    showStatus('不支持 HLS');
                 }
             };
 
@@ -328,6 +286,10 @@
     let currentPlayUrl = ''; 
     let currentRouteIndex = 0;
     let categoryMap = {};
+    
+    // 全局剧集数据缓存，用于“上一集/下一集”切换
+    window.currentTracks = [];
+    window.currentTrackIndex = 0;
 
     const ROUTES = [
         { type: 'native', prefix: '' },
@@ -336,7 +298,7 @@
         { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
 
-    // ==================== 父页面监听 Iframe 通信 ====================
+    // ==================== 接收 HLS iframe 的元数据以自适应横竖屏 ====================
     window.addEventListener('message', function(e) {
         if (e.data && e.data.type === 'video-meta') {
             const container = document.getElementById('video-container');
@@ -427,7 +389,7 @@
             fsText.innerText = '× 退出全屏 (Esc)';
             document.body.style.overflow = 'hidden';
         } else {
-            fsText.innerText = '⛶ 网页全屏';
+            fsText.innerText = '⛶ 全屏';
             document.body.style.overflow = '';
         }
     }
@@ -593,27 +555,35 @@
         });
     }
 
-    // ==================== 播放页逻辑 ====================
+    // ==================== 播放页核心逻辑 ====================
     async function openDetail(id) {
-        document.getElementById('playerTitle').innerText = '正在载入剧集信息...';
+        document.getElementById('navTitle').innerText = '短剧播放';
+        document.getElementById('playerDetailTitle').innerText = '正在载入剧集信息...';
         document.getElementById('epList').innerHTML = '';
+        window.currentTracks = [];
         
         const html = await fetchHtml(SITE + '/detail/' + id + '/');
         if (!html) return;
         
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const titleEl = doc.querySelector('.hg-web-detail__title, h1');
-        if (titleEl) document.getElementById('playerTitle').innerText = titleEl.textContent.trim();
+        const rawTitle = titleEl ? titleEl.textContent.trim() : '未知剧集';
+        
+        // 顶部小标题
+        document.getElementById('navTitle').innerText = rawTitle;
+        // 底部大标题
+        document.getElementById('playerDetailTitle').innerText = rawTitle;
 
         const tracks = [];
         doc.querySelectorAll('.hg-web-detail__ep-grid a').forEach(a => {
             const href = a.getAttribute('href');
             const eid = a.getAttribute('data-ep-id');
-            const name = eid ? '第' + eid + '集' : a.textContent.trim();
+            const name = eid ? eid : a.textContent.trim();
             if (href) tracks.push({ name: name, url: formatPageUrl(href), ep: eid || '1' });
         });
         
         if (tracks.length > 0) {
+            window.currentTracks = tracks;
             renderEpisodes(tracks);
             playEpisode(tracks[0].url, tracks[0].ep, 0); 
         } else {
@@ -627,16 +597,34 @@
         tracks.forEach((track, index) => {
             const btn = document.createElement('button');
             btn.id = 'ep-btn-' + index;
-            btn.innerText = track.ep;
+            btn.innerText = track.ep; // 极简数字风格
             btn.onclick = () => playEpisode(track.url, track.ep, index);
             epList.appendChild(btn);
         });
     }
 
+    // 上一集 / 下一集 切换逻辑
+    function step(dir) {
+        const nextIdx = window.currentTrackIndex + dir;
+        if (nextIdx >= 0 && nextIdx < window.currentTracks.length) {
+            const t = window.currentTracks[nextIdx];
+            playEpisode(t.url, t.ep, nextIdx);
+        } else {
+            alert(dir < 0 ? '已经是第一集' : '已经是最后一集');
+        }
+    }
+
     async function playEpisode(pageUrl, ep, index) {
+        window.currentTrackIndex = index;
+        
+        // 更新激活样式
         document.querySelectorAll('.episodes button').forEach(b => b.classList.remove('active'));
         const activeBtn = document.getElementById('ep-btn-' + index);
-        if (activeBtn) activeBtn.classList.add('active');
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            // 自动将当前选集按钮平滑滚动到可视区域居中
+            activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
         
         document.getElementById('debugText').innerText = "正在解析第 " + ep + " 集地址...";
         resetPlayerContext();
@@ -663,7 +651,7 @@
         }
 
         currentPlayUrl = playUrl;
-        document.getElementById('debugText').innerHTML = "✅ 源地址获取成功！<br>若原生播放黑屏/卡顿，请尝试切换【内置HLS解析】。";
+        document.getElementById('debugText').innerHTML = "✅ 第 "+ep+" 集解析成功！<br>若原生播放黑屏，请切换线路。";
         
         if (!playUrl.includes('.m3u8') && !playUrl.includes('.mp4')) switchRoute(1);
         else executeRoute();
@@ -719,7 +707,6 @@
         iframe.style.display = 'none';
     }
 
-    // 【原生直连】获取到视频流后也会自动适配横竖屏框占比
     function initHlsPlayer(url) {
         const video = document.getElementById('videoPlayer');
         if (Hls.isSupported()) {
@@ -728,7 +715,7 @@
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
             hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) document.getElementById('debugText').innerHTML += "<br>⚠️ 防盗链拦截！请点下方【内置HLS解析】。";
+                if (data.fatal) document.getElementById('debugText').innerHTML += "<br>⚠️ 防盗链拦截！请点下方【内置HLS】。";
             });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = url;
