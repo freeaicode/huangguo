@@ -48,12 +48,16 @@
         /* ==================== 沉浸式短剧播放页 ==================== */
         #player-view { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #000; z-index: 1000; overflow: hidden; }
         
-        /* 视频图层 */
+        /* 视频图层 (加入了海报封面) */
         .video-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; display: flex; justify-content: center; align-items: center; }
         .video-layer video, .video-layer iframe { width: 100%; height: 100%; border: none; object-fit: cover; }
         
+        /* 播放器封面 (未播放和暂停时显示) */
+        .player-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; transition: opacity 0.3s ease; pointer-events: none; filter: brightness(0.85); background: #000; }
+        .player-poster.hidden { opacity: 0; }
+
         /* 沉浸式 UI 图层 */
-        .ui-layer { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        .ui-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
         
         /* 允许用户点击的元素开启 pointer-events */
         .ui-top, .ui-right, .ui-bottom-controls, .click-layer { pointer-events: auto; }
@@ -75,7 +79,8 @@
         /* 右侧互动区 */
         .ui-right { position: absolute; right: 12px; bottom: 130px; display: flex; flex-direction: column; gap: 20px; align-items: center; }
         .action-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: #fff; cursor: pointer; }
-        .action-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; font-size: 18px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(4px); }
+        .action-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; font-size: 18px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(4px); transition: transform 0.1s; }
+        .action-item:active .action-icon { transform: scale(0.9); }
         .action-item span { font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
         .speed-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.3); display: flex; justify-content: center; align-items: center; font-size: 13px; font-weight: bold; backdrop-filter: blur(4px); }
 
@@ -154,6 +159,7 @@
     <section id="player-view" class="view">
         
         <div class="video-layer">
+            <img id="playerPoster" class="player-poster" src="" alt="封面" />
             <video id="videoPlayer" autoplay playsinline webkit-playsinline></video>
             <iframe id="iframePlayer" allow="autoplay;fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
         </div>
@@ -168,22 +174,26 @@
                 <div class="ui-logo-box">
                     <div class="ui-logo-icon"></div>
                     <div class="ui-logo-text">
-                        <!-- 修改了文案和域名 -->
                         <b>黄果短剧聚合<span>AI</span></b>
                         <small>hgav.pages.dev</small>
                     </div>
                 </div>
             </div>
 
-            <!-- 右侧互动按钮组 (仅保留分享和倍速) -->
+            <!-- 右侧互动按钮组 -->
             <div class="ui-right">
                 <div class="action-item" onclick="shareAction()">
-                    <div class="action-icon">➦</div>
+                    <div class="action-icon" style="font-size:22px;">➦</div>
                     <span>分享</span>
                 </div>
                 <div class="action-item" onclick="toggleSpeed()">
                     <div class="speed-icon" id="speedText">1X</div>
                     <span>倍速</span>
+                </div>
+                <!-- 新增：右侧播放/暂停联动控制键 -->
+                <div class="action-item" onclick="togglePlayPause()">
+                    <div class="action-icon" id="playPauseIcon" style="font-size:16px;">▶</div>
+                    <span id="playPauseText">播放</span>
                 </div>
             </div>
 
@@ -233,7 +243,7 @@
         </div>
     </div>
 
-    <!-- Tailwind HLS 纯净播放器代码模板 -->
+    <!-- Tailwind HLS 纯净播放器代码模板 (已添加 postMessage 回调同步状态) -->
 <textarea id="tailwind-player-tpl" style="display:none;">
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -260,13 +270,21 @@
             const initialSpeed = parseFloat("{{PLAY_SPEED}}") || 1.0;
             let hls = null;
 
-            // 监听父级传递的倍速变更消息
+            // 监听父级传递的消息 (倍速/播放暂停)
             window.addEventListener('message', (e) => {
-                if (e.data && e.data.type === 'set-speed') {
+                if (!e.data) return;
+                if (e.data.type === 'set-speed') {
                     video.playbackRate = e.data.speed;
+                } else if (e.data.type === 'toggle-play') {
+                    if (video.paused) video.play(); else video.pause();
                 }
             });
 
+            // 回传播放状态给父级（隐藏封面、更新右侧按钮）
+            video.addEventListener('play', () => { window.parent.postMessage({ type: 'video-state', state: 'play' }, '*'); });
+            video.addEventListener('pause', () => { window.parent.postMessage({ type: 'video-state', state: 'pause' }, '*'); });
+            
+            // iframe 内部点击事件
             video.addEventListener('click', () => {
                 if(video.paused) video.play(); else video.pause();
             });
@@ -305,6 +323,7 @@
     let currentRouteIndex = 0;
     let categoryMap = {};
     window.currentTracks = [];
+    window.activePoster = ''; // 用于存储从首页点击的封面
     
     // 全局播放倍速状态
     let currentPlaybackSpeed = 1.0;
@@ -316,23 +335,34 @@
         { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
 
-    // ==================== 右侧功能逻辑 (倍速 & 分享) ====================
+    // ==================== 父级通信与状态同步 ====================
+    window.addEventListener('message', (e) => {
+        if (!e.data) return;
+        if (e.data.type === 'video-meta') {
+            const container = document.getElementById('video-container');
+            if (e.data.isPortrait) container.classList.add('portrait');
+            else container.classList.remove('portrait');
+        }
+        // 同步 HLS iframe 的播放/暂停状态到父 UI
+        if (e.data.type === 'video-state') {
+            handlePlayStateChange(e.data.state === 'play');
+        }
+    });
+
+    // ==================== 右侧功能逻辑 (倍速 & 播放 & 分享) ====================
     function toggleSpeed() {
         const speeds = [1.0, 1.25, 1.5, 2.0];
         let idx = speeds.indexOf(currentPlaybackSpeed);
         idx = (idx + 1) % speeds.length;
         currentPlaybackSpeed = speeds[idx];
         
-        // 更新 UI 文本
         document.getElementById('speedText').innerText = currentPlaybackSpeed + 'X';
         
-        // 调节原生视频倍速
         const videoEl = document.getElementById('videoPlayer');
         if (videoEl && videoEl.style.display !== 'none') {
             videoEl.playbackRate = currentPlaybackSpeed;
         }
         
-        // 通知内置 HLS Iframe 倍速
         const iframe = document.getElementById('iframePlayer');
         if (iframe && iframe.contentWindow && ROUTES[currentRouteIndex].type === 'tailwind_hls') {
             iframe.contentWindow.postMessage({ type: 'set-speed', speed: currentPlaybackSpeed }, '*');
@@ -353,6 +383,55 @@
         }
     }
 
+    // ==================== 统一的播放/暂停交互逻辑 ====================
+    const videoEl = document.getElementById('videoPlayer');
+    const playIndicator = document.getElementById('playIndicator');
+    const progressFill = document.getElementById('progressFill');
+
+    function togglePlayPause() {
+        const routeType = ROUTES[currentRouteIndex].type;
+        const iframe = document.getElementById('iframePlayer');
+
+        if (routeType === 'native') {
+            if (videoEl.paused) videoEl.play(); else videoEl.pause();
+        } else if (routeType === 'tailwind_hls') {
+            if (iframe.contentWindow) iframe.contentWindow.postMessage({ type: 'toggle-play' }, '*');
+        }
+    }
+
+    // 中间空白区域点击
+    document.getElementById('clickLayer').addEventListener('click', togglePlayPause);
+
+    // 原生视频事件监听
+    videoEl.addEventListener('play', () => handlePlayStateChange(true));
+    videoEl.addEventListener('pause', () => handlePlayStateChange(false));
+    videoEl.addEventListener('timeupdate', () => {
+        if (videoEl.duration) {
+            progressFill.style.width = ((videoEl.currentTime / videoEl.duration) * 100) + '%';
+        }
+    });
+
+    // 处理 UI 的暂停与播放状态联动（隐藏封面，更新图标）
+    function handlePlayStateChange(isPlaying) {
+        const posterEl = document.getElementById('playerPoster');
+        const icon = document.getElementById('playPauseIcon');
+        const text = document.getElementById('playPauseText');
+
+        if (isPlaying) {
+            posterEl.classList.add('hidden');
+            icon.innerText = '⏸';
+            text.innerText = '暂停';
+            playIndicator.classList.remove('show');
+        } else {
+            posterEl.classList.remove('hidden');
+            icon.innerText = '▶';
+            text.innerText = '播放';
+            playIndicator.innerText = '⏸';
+            playIndicator.classList.add('show');
+            setTimeout(() => playIndicator.classList.remove('show'), 800);
+        }
+    }
+
     // ==================== 底部弹窗逻辑 ====================
     function toggleSheet() {
         const sheet = document.getElementById('bottomSheet');
@@ -366,33 +445,6 @@
             backdrop.classList.add('show');
         }
     }
-
-    // ==================== 自定义视频交互逻辑 (点击暂停/进度条) ====================
-    const videoEl = document.getElementById('videoPlayer');
-    const playIndicator = document.getElementById('playIndicator');
-    const progressFill = document.getElementById('progressFill');
-
-    document.getElementById('clickLayer').addEventListener('click', () => {
-        if (videoEl.style.display !== 'none') {
-            if (videoEl.paused) {
-                videoEl.play();
-                playIndicator.classList.remove('show');
-            } else {
-                videoEl.pause();
-                playIndicator.innerText = '⏸';
-                playIndicator.classList.add('show');
-                setTimeout(() => playIndicator.classList.remove('show'), 800);
-            }
-        }
-    });
-
-    videoEl.addEventListener('timeupdate', () => {
-        if (videoEl.duration) {
-            const percentage = (videoEl.currentTime / videoEl.duration) * 100;
-            progressFill.style.width = percentage + '%';
-        }
-    });
-    videoEl.addEventListener('play', () => playIndicator.classList.remove('show'));
 
     // ==================== 图片解密核心 ====================
     const KEY = CryptoJS.enc.Utf8.parse('f5d965df75336270');
@@ -581,6 +633,7 @@
             const card = document.createElement('div');
             card.className = 'card';
             card.onclick = () => {
+                window.activePoster = item.vod_pic; // 记录被点击视频的封面
                 window.location.hash = 'detail/' + item.vod_id;
             };
             
@@ -607,9 +660,18 @@
         if (!html) return;
         
         const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // 抓取并设置封面 (优先取点击传递过来的值，其次从详情页抓取)
+        let pUrl = window.activePoster || '';
+        if (!pUrl) {
+            const imgTags = doc.querySelectorAll('img[data-src]');
+            if(imgTags.length > 0) pUrl = imgTags[0].getAttribute('data-src');
+        }
+        const posterEl = document.getElementById('playerPoster');
+        if (pUrl) pic(posterEl, formatPageUrl(pUrl)); else posterEl.src = '';
+        
         const titleEl = doc.querySelector('.hg-web-detail__title, h1');
         const rawTitle = titleEl ? titleEl.textContent.trim() : '未知剧集';
-        
         document.getElementById('uiTitle').innerText = rawTitle;
         const descEl = doc.querySelector('.hg-web-detail__desc');
         document.getElementById('uiDesc').innerText = descEl ? descEl.textContent.trim() : rawTitle;
@@ -707,7 +769,9 @@
             let iframeUrl = route.prefix ? route.prefix + encodeURIComponent(currentPlayUrl) : currentPlayUrl;
             const iframe = document.getElementById('iframePlayer');
             iframe.style.display = 'block';
-            document.getElementById('clickLayer').style.pointerEvents = 'none'; 
+            document.getElementById('clickLayer').style.pointerEvents = 'none';
+            // 第三方解析无法判定状态，直接隐藏封面
+            document.getElementById('playerPoster').classList.add('hidden');
             iframe.src = iframeUrl;
         }
     }
@@ -719,7 +783,7 @@
         videoEl.load(); 
         
         progressFill.style.width = '0%';
-        playIndicator.classList.remove('show');
+        handlePlayStateChange(false); // 强制重置为暂停(封面)状态
 
         const iframe = document.getElementById('iframePlayer');
         iframe.src = '';
