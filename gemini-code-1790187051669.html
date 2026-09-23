@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="referrer" content="no-referrer">
+    <title>黄果短剧 - 独立播放页版</title>
+    <!-- 引入播放及解密依赖 -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+    <style>
+        /* ==================== 继承自 huangguo-1.41 的全局样式 ==================== */
+        :root{--bg:#0b0c10;--card:#151821;--card2:#1f2432;--line:#2a3040;--pink:#ff3358;--text:#f8fafc;--muted:#9aa1b2;--dim:#626a7e}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+        body{margin:0 auto;max-width:500px;min-height:100vh;background:var(--bg);color:var(--text);font:14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+        
+        .view{display:none}
+        .view.active{display:block}
+        
+        .header{position:sticky;top:0;z-index:30;background:rgba(11,12,16,.95);backdrop-filter:blur(12px);padding:10px 14px;border-bottom:1px solid var(--line)}
+        .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+        .brand{font-size:17px;font-weight:800;cursor:pointer}
+        .brand b{color:var(--pink)}
+        button{font:inherit;cursor:pointer}
+        .icon,.tab,.route,.pagebtn{border:1px solid var(--line);background:var(--card);color:var(--muted)}
+        
+        .search{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;background:#1a1e2b;border:1px solid var(--line);border-radius:20px}
+        .search input{flex:1;min-width:0;color:#fff;background:transparent;border:0;outline:0}
+        .search button{color:var(--pink);border:0;background:transparent;font-weight:700}
+        
+        .tabs,.episodes{display:flex;gap:8px;overflow:auto}
+        .tabs{padding-top:9px}
+        .tabs::-webkit-scrollbar,.episodes::-webkit-scrollbar{display:none}
+        .tab{white-space:nowrap;padding:5px 12px;border-radius:16px;background:transparent;border-color:transparent}
+        .tab.active,.route.active{color:#fff;background:var(--pink);border-color:var(--pink)}
+        
+        main{padding:12px}
+        .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .card{overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:7px;cursor:pointer}
+        .cover{position:relative;aspect-ratio:3/4;background:#202633}
+        .cover img{display:block;width:100%;height:100%;object-fit:cover}
+        .badge{position:absolute;padding:2px 5px;border-radius:4px;background:rgba(0,0,0,.75);font-size:10px}
+        .ep{top:4px;left:4px;color:#fbbf24}
+        .score{right:4px;bottom:4px;background:rgba(255,51,88,.9)}
+        .info{padding:7px 8px}
+        .name{min-height:32px;font-size:12px;font-weight:600;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+        
+        .loading,.error{text-align:center;padding:50px 10px;color:var(--muted)}
+        .error{color:#f87171}
+        
+        /* 播放页样式 */
+        .nav{position:sticky;top:0;z-index:31;display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 12px;background:rgba(11,12,16,.95);border-bottom:1px solid var(--line)}
+        .back{font-weight:600;cursor:pointer}
+        .navtitle{max-width:230px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        
+        .player{position:sticky;top:48px;z-index:20;overflow:hidden;background:#000; display:flex; justify-content:center;}
+        .player video,.player iframe{display:none;width:100%;height:55vh;max-height:580px;border:0;object-fit:contain}
+        .player.portrait video,.player.portrait iframe{height:68vh}
+        .full{position:absolute;z-index:4;right:10px;top:10px;padding:5px 9px;color:#fff;background:rgba(0,0,0,.65);border:1px solid #555;border-radius:15px;font-size:11px}
+        
+        .player.webfull{position:fixed;inset:0;top:0;z-index:9999;width:100vw;height:100dvh}
+        .player.webfull video,.player.webfull iframe{height:100%!important;max-height:none!important;background:#000!important;}
+        
+        .debug{padding:8px 12px;overflow:hidden;color:var(--muted);background:#141722;font-size:12px;word-break:break-all;}
+        .routes{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--card); flex-wrap:wrap;}
+        .routes small{font-size:11px;color:var(--dim);white-space:nowrap; width:100%; margin-bottom:4px;}
+        .route{padding:6px 12px;border-radius:12px;font-size:11px; flex:1; text-align:center;}
+        
+        .detail{padding:12px}
+        .detail h1{margin:0 0 10px;font-size:16px}
+        .episodes{flex-wrap: wrap;}
+        .episodes button{min-width:46px;height:38px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:6px; margin-bottom:8px;}
+        .episodes button.active{color:#fff;background:var(--pink);border-color:var(--pink)}
+    </style>
+</head>
+<body>
+
+    <!-- 主页视图 -->
+    <section id="home-view" class="view active">
+        <header class="header">
+            <div class="top">
+                <div class="brand" onclick="loadHome()"><b>黄果</b> 短剧聚合</div>
+            </div>
+            <div class="search">
+                ⌕<input id="searchInput" placeholder="搜索短剧、漫剧、类型关键词" onkeydown="if(event.key==='Enter')doSearch(this.value)">
+                <button onclick="doSearch(document.getElementById('searchInput').value)">搜索</button>
+            </div>
+            <div class="tabs" id="categoryBar">
+                <button class="tab active" onclick="selectCategory('首页', this)">首页推荐</button>
+                <button class="tab" onclick="selectCategory('排行榜', this)">🔥 排行榜</button>
+                <button class="tab" onclick="selectCategory('AI成人短剧', this)">AI成人短剧</button>
+                <button class="tab" onclick="selectCategory('AI成人漫剧', this)">AI成人漫剧</button>
+                <button class="tab" onclick="selectCategory('AI换脸', this)">AI换脸</button>
+                <button class="tab" onclick="selectCategory('AI魔改', this)">AI魔改</button>
+                <button class="tab" onclick="selectCategory('逆袭', this)">逆袭</button>
+                <button class="tab" onclick="selectCategory('战神', this)">战神</button>
+                <button class="tab" onclick="selectCategory('重生', this)">重生</button>
+            </div>
+        </header>
+        <main>
+            <div id="loading" class="loading" style="display:none">正在加载数据...</div>
+            <div class="grid" id="videoGrid"></div>
+        </main>
+    </section>
+
+    <!-- 独立播放页视图 -->
+    <section id="player-view" class="view">
+        <nav class="nav">
+            <span class="back" onclick="navToHome()">‹ 返回主页</span>
+            <span id="playerTitle" class="navtitle">剧集加载中...</span>
+            <span></span>
+        </nav>
+        
+        <div id="video-container" class="player">
+            <button id="webFsBtn" class="full" onclick="toggleWebFullscreen()">⛶ 网页全屏</button>
+            <video id="videoPlayer" controls playsinline></video>
+            <iframe id="iframePlayer" allow="autoplay;fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
+        </div>
+        
+        <div id="debugText" class="debug">等待获取播放源...</div>
+        
+        <div class="routes" id="routeBar">
+            <small>播放线路切换 (无法播放时请尝试右侧线路):</small>
+            <button class="route active" onclick="switchRoute(0)">原生直连</button>
+            <button class="route" onclick="switchRoute(1)">公共解析 1</button>
+            <button class="route" onclick="switchRoute(2)">内置HLS解析</button>
+            <button class="route" onclick="switchRoute(3)">公共解析 3</button>
+        </div>
+        
+        <div class="detail">
+            <h1>剧集选集</h1>
+            <div id="epList" class="episodes"></div>
+        </div>
+    </section>
+
+    <!-- Tailwind HLS 纯净播放器代码模板 (仅保留播放器核心 UI) -->
+<textarea id="tailwind-player-tpl" style="display:none;">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Video Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+    </style>
+</head>
+<body class="flex items-center justify-center relative">
+    
+    <!-- 状态提示框 -->
+    <div id="status-container" class="absolute top-4 left-4 right-4 z-20 hidden p-3 rounded-md text-sm border shadow-lg bg-black/80 text-white break-all text-center"></div>
+
+    <!-- 加载动画 Overlay -->
+    <div id="loading-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 hidden">
+        <div class="w-10 h-10 border-4 border-gray-600 border-t-white rounded-full animate-spin mb-3"></div>
+        <span class="text-gray-300 font-medium text-xs">加载中...</span>
+    </div>
+
+    <!-- 纯净视频播放器 -->
+    <video id="video-player" class="outline-none" controls playsinline></video>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video-player');
+            const statusContainer = document.getElementById('status-container');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const streamUrl = "{{VIDEO_URL}}"; 
+            
+            let hls = null;
+
+            const showStatus = (message) => {
+                statusContainer.innerHTML = message;
+                statusContainer.classList.remove('hidden');
+                setTimeout(() => statusContainer.classList.add('hidden'), 5000);
+            };
+
+            const toggleLoading = (show) => {
+                show ? loadingOverlay.classList.remove('hidden') : loadingOverlay.classList.add('hidden');
+            };
+
+            const loadStream = (url) => {
+                if (!url) return;
+                toggleLoading(true);
+
+                if (hls) hls.destroy();
+
+                if (Hls.isSupported()) {
+                    hls = new Hls({ debug: false, enableWorker: true, lowLatencyMode: true, backBufferLength: 90 });
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                        toggleLoading(false);
+                        video.play().catch(e => console.log("Autoplay prevented", e));
+                    });
+
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                            toggleLoading(false);
+                            if(data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                                hls.startLoad();
+                            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                                hls.recoverMediaError();
+                            } else {
+                                showStatus(`播放出错: ${data.details}`);
+                                hls.destroy();
+                            }
+                        }
+                    });
+                } 
+                else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url;
+                    video.addEventListener('loadedmetadata', function() {
+                        toggleLoading(false);
+                        video.play().catch(e => console.log("Autoplay prevented", e));
+                    });
+                    video.addEventListener('error', function() {
+                        toggleLoading(false);
+                        showStatus('解析失败，请尝试其他线路');
+                    });
+                } else {
+                    toggleLoading(false);
+                    showStatus('当前浏览器不支持 HLS 播放');
+                }
+            };
+
+            video.addEventListener('waiting', () => toggleLoading(true));
+            video.addEventListener('playing', () => toggleLoading(false));
+
+            // 自动加载注入的 URL
+            loadStream(streamUrl);
+        });
+    </script>
+</body>
+</html>
+</textarea>
+
+<script>
+    // ==================== 基础配置 ====================
+    const SITE = 'https://huangguoai.com';
+    let hls = null;
+    let currentPlayUrl = ''; 
+    let currentRouteIndex = 0;
+    let categoryMap = {};
+
+    const ROUTES = [
+        { type: 'native', prefix: '' },
+        { type: 'iframe', prefix: 'https://jx.playerjy.com/?url=' },
+        { type: 'tailwind_hls', prefix: '' }, 
+        { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
+    ];
+
+    // ==================== 图片解密核心 ====================
+    const KEY = CryptoJS.enc.Utf8.parse('f5d965df75336270');
+    const IV = CryptoJS.enc.Utf8.parse('97b60394abc2fbe1');
+    const PROXY = 'https://hg-img.bobox.de5.net/?url=';
+    const cache = new Map();
+
+    function px(u){ return PROXY ? (PROXY + (PROXY.includes('?') ? encodeURIComponent(u) : u)) : u; }
+
+    function decrypt(ab) {
+        const u = new Uint8Array(ab), plain = u[0]===255&&u[1]===216 || u[0]===137&&u[1]===80 || u[0]===82&&u[1]===73 || u[0]===71&&u[1]===73;
+        if(plain || u.length % 16) return new Blob([ab]);
+        try {
+            const w = [];
+            for(let i=0; i<u.length; i+=4) w.push((u[i]<<24) | ((u[i+1]||0)<<16) | ((u[i+2]||0)<<8) | (u[i+3]||0));
+            let h = CryptoJS.enc.Hex.stringify(CryptoJS.AES.decrypt(
+                {ciphertext: CryptoJS.lib.WordArray.create(w, u.length)},
+                KEY, {iv: IV, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.NoPadding}
+            )).toLowerCase();
+            
+            if(!h.startsWith('ffd8')) return new Blob([ab]);
+            const end = h.lastIndexOf('ffd9');
+            if(end >= 0) h = h.slice(0, end+4);
+            
+            const o = new Uint8Array(h.length/2);
+            for(let i=0; i<o.length; i++) o[i] = parseInt(h.slice(i*2, i*2+2), 16);
+            return new Blob([o], {type: 'image/jpeg'});
+        } catch(e) { return new Blob([ab]); }
+    }
+
+    async function pic(im, u) {
+        if(!u) return;
+        if(cache.has(u)) { im.src = cache.get(u); return; }
+        try {
+            const r = await fetch(px(u));
+            if(!r.ok) throw new Error('HTTP ' + r.status);
+            const o = URL.createObjectURL(decrypt(await r.arrayBuffer()));
+            cache.set(u, o);
+            im.src = o;
+        } catch(e) { im.src = u; }
+    }
+
+    // ==================== 视图及路由控制 ====================
+    function showView(viewId) {
+        document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+
+    function navToHome() {
+        resetPlayerContext();
+        window.location.hash = '';
+        showView('home-view');
+    }
+
+    function navToPlayer(vid) {
+        window.location.hash = 'detail/' + vid;
+        showView('player-view');
+        openDetail(vid);
+    }
+
+    window.onhashchange = function() {
+        const hash = window.location.hash;
+        if (hash.startsWith('#detail/')) {
+            const vid = hash.replace('#detail/', '');
+            showView('player-view');
+            openDetail(vid);
+        } else {
+            navToHome();
+        }
+    };
+
+    function toggleWebFullscreen() {
+        const container = document.getElementById('video-container');
+        const fsText = document.getElementById('webFsBtn');
+        const isFs = container.classList.toggle('webfull');
+        if (isFs) {
+            fsText.innerText = '× 退出全屏 (Esc)';
+            document.body.style.overflow = 'hidden';
+        } else {
+            fsText.innerText = '⛶ 网页全屏';
+            document.body.style.overflow = '';
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+            const container = document.getElementById('video-container');
+            if (container.classList.contains('webfull')) toggleWebFullscreen();
+        }
+    });
+
+    // ==================== 数据获取与解析 ====================
+    function formatPageUrl(rawUrl) {
+        if (!rawUrl) return '';
+        rawUrl = rawUrl.trim();
+        if (rawUrl.startsWith('javascript') || rawUrl.startsWith('#')) return '';
+        if (rawUrl.startsWith('//')) return 'https:' + rawUrl;
+        if (!rawUrl.startsWith('http')) return SITE + (rawUrl.startsWith('/') ? '' : '/') + rawUrl;
+        return rawUrl;
+    }
+
+    function extractImgUrl(cardEl) {
+        if (!cardEl) return '';
+        const imgEl = cardEl.querySelector('img, [data-src], [data-original], [data-lazy-src]');
+        let src = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
+        if (src && src.includes('/_next/image')) {
+            try {
+                const u = new URL(src.startsWith('http') ? src : SITE + src);
+                const realUrl = u.searchParams.get('url');
+                if (realUrl) src = decodeURIComponent(realUrl);
+            } catch(e) {}
+        }
+        return formatPageUrl(src);
+    }
+
+    async function fetchHtml(url) {
+        try {
+            document.getElementById('loading').style.display = 'block';
+            const res = await fetch(url);
+            const text = await res.text();
+            document.getElementById('loading').style.display = 'none';
+            return text;
+        } catch (e) {
+            console.error(e);
+            document.getElementById('loading').style.display = 'none';
+            return '';
+        }
+    }
+
+    function parseGridCards(html) {
+        if (!html) return [];
+        const list = [];
+        const seen = {};
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const cards = doc.querySelectorAll('.hg-drama-card, .hg-rank-item');
+        cards.forEach(card => {
+            const aTag = card.querySelector('a[href*="/detail/"]');
+            if (!aTag) return;
+            const href = aTag.getAttribute('href');
+            const vidMatch = href.match(/\/detail\/(\d+)/);
+            if (!vidMatch) return;
+            const vid = vidMatch[1];
+            
+            if (seen[vid]) return; 
+            seen[vid] = true;
+            
+            const titleTag = card.querySelector('.hg-drama-card__title, .hg-rank-item__title');
+            const title = titleTag ? titleTag.textContent.trim() : '未知剧名';
+            const picUrl = extractImgUrl(card);
+            
+            const epTag = card.querySelector('.hg-drama-card__episode');
+            const scoreTag = card.querySelector('.hg-drama-card__score');
+            const ep = epTag ? epTag.textContent.trim().replace(/更新至|全/g,'') : '';
+            const score = scoreTag ? scoreTag.textContent.trim() : '';
+            
+            list.push({ vod_id: vid, vod_name: title, vod_pic: picUrl, ep: ep, score: score });
+        });
+        return list;
+    }
+
+    // ==================== 首页渲染逻辑 ====================
+    async function loadHome() {
+        document.getElementById('videoGrid').innerHTML = '';
+        const html = await fetchHtml(SITE + '/');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        doc.querySelectorAll('a').forEach(a => {
+            const text = a.textContent.trim();
+            const href = a.getAttribute('href');
+            if (text && href && !href.startsWith('javascript') && !href.startsWith('#')) {
+                const fullUrl = formatPageUrl(href);
+                if (fullUrl && !fullUrl.includes('/detail/') && fullUrl !== SITE + '/') {
+                    categoryMap[text] = fullUrl;
+                }
+            }
+        });
+        renderGrid(parseGridCards(html));
+    }
+
+    async function selectCategory(keyword, el) {
+        document.querySelectorAll('.tab').forEach(tag => tag.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('searchInput').value = (keyword === '首页') ? '' : keyword;
+        
+        if (keyword === '首页') return loadHome();
+        document.getElementById('videoGrid').innerHTML = '';
+        
+        let targetUrl = '';
+        if (categoryMap[keyword]) targetUrl = categoryMap[keyword];
+        else {
+            for (let key in categoryMap) {
+                if (key.includes(keyword) || keyword.includes(key)) { targetUrl = categoryMap[key]; break; }
+            }
+        }
+        if (!targetUrl) targetUrl = SITE + '/search/video/' + encodeURIComponent(keyword) + '/';
+
+        let list = parseGridCards(await fetchHtml(targetUrl));
+        if (list.length === 0 && !targetUrl.includes('/search/')) {
+            list = parseGridCards(await fetchHtml(SITE + '/search/video/' + encodeURIComponent(keyword) + '/'));
+        }
+        renderGrid(list);
+    }
+
+    async function doSearch(kw) {
+        kw = kw.trim();
+        if (!kw) return loadHome();
+        document.getElementById('videoGrid').innerHTML = '';
+        document.querySelectorAll('.tab').forEach(tag => {
+            tag.classList.toggle('active', tag.innerText.includes(kw));
+        });
+
+        const list = parseGridCards(await fetchHtml(SITE + '/search/video/' + encodeURIComponent(kw) + '/'));
+        if(list.length === 0) {
+            document.getElementById('videoGrid').innerHTML = '<div class="loading">未找到相关短剧</div>';
+        } else renderGrid(list);
+    }
+
+    function renderGrid(list) {
+        const grid = document.getElementById('videoGrid');
+        grid.innerHTML = ''; 
+        list.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.onclick = () => navToPlayer(item.vod_id);
+            
+            const cv = document.createElement('div');
+            cv.className = 'cover';
+            
+            const im = document.createElement('img');
+            pic(im, item.vod_pic);
+            cv.append(im);
+            
+            if (item.ep) cv.insertAdjacentHTML('beforeend', '<span class="badge ep">' + item.ep + '</span>');
+            if (item.score) cv.insertAdjacentHTML('beforeend', '<span class="badge score">' + item.score + '</span>');
+            
+            card.append(cv);
+            card.insertAdjacentHTML('beforeend', '<div class="info"><div class="name">' + item.vod_name + '</div></div>');
+            
+            grid.appendChild(card);
+        });
+    }
+
+    // ==================== 播放页逻辑 ====================
+    async function openDetail(id) {
+        document.getElementById('playerTitle').innerText = '正在载入剧集信息...';
+        document.getElementById('epList').innerHTML = '';
+        
+        const html = await fetchHtml(SITE + '/detail/' + id + '/');
+        if (!html) return;
+        
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const titleEl = doc.querySelector('.hg-web-detail__title, h1');
+        if (titleEl) document.getElementById('playerTitle').innerText = titleEl.textContent.trim();
+
+        const tracks = [];
+        doc.querySelectorAll('.hg-web-detail__ep-grid a').forEach(a => {
+            const href = a.getAttribute('href');
+            const eid = a.getAttribute('data-ep-id');
+            const name = eid ? '第' + eid + '集' : a.textContent.trim();
+            if (href) tracks.push({ name: name, url: formatPageUrl(href), ep: eid || '1' });
+        });
+        
+        if (tracks.length > 0) {
+            renderEpisodes(tracks);
+            playEpisode(tracks[0].url, tracks[0].ep, 0); 
+        } else {
+            document.getElementById('debugText').innerText = '❌ 未解析到剧集列表';
+        }
+    }
+
+    function renderEpisodes(tracks) {
+        const epList = document.getElementById('epList');
+        epList.innerHTML = '';
+        tracks.forEach((track, index) => {
+            const btn = document.createElement('button');
+            btn.id = 'ep-btn-' + index;
+            btn.innerText = track.ep;
+            btn.onclick = () => playEpisode(track.url, track.ep, index);
+            epList.appendChild(btn);
+        });
+    }
+
+    async function playEpisode(pageUrl, ep, index) {
+        document.querySelectorAll('.episodes button').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.getElementById('ep-btn-' + index);
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        document.getElementById('debugText').innerText = "正在解析第 " + ep + " 集地址...";
+        resetPlayerContext();
+
+        const html = await fetchHtml(pageUrl);
+        let playUrl = '';
+        const m = html.match(/id="videoInitialData"[^>]*>([\s\S]*?)<\/script>/);
+        if (m) {
+            try {
+                const data = JSON.parse(m[1]);
+                const srcs = data.epPlaySrcs || {};
+                playUrl = srcs[ep] || data.videoSrc || '';
+                playUrl = playUrl.replace(/\\u0026/g, '&');
+                if (playUrl && playUrl.indexOf('http') !== 0) {
+                    const mm = playUrl.match(/(https?:\/\/[^\s"']+)/);
+                    playUrl = mm ? mm[1] : playUrl;
+                }
+            } catch (e) {}
+        }
+
+        if (!playUrl) {
+            document.getElementById('debugText').innerText = "❌ 未提取到播放地址";
+            return;
+        }
+
+        currentPlayUrl = playUrl;
+        document.getElementById('debugText').innerHTML = "✅ 源地址获取成功！<br>若原生播放黑屏/卡顿，请尝试切换【内置HLS解析】。";
+        
+        if (!playUrl.includes('.m3u8') && !playUrl.includes('.mp4')) switchRoute(1);
+        else executeRoute();
+    }
+
+    function switchRoute(index) {
+        currentRouteIndex = index;
+        document.querySelectorAll('.route').forEach((btn, i) => {
+            btn.classList.toggle('active', i === index);
+        });
+        if(currentPlayUrl) executeRoute();
+    }
+
+    function executeRoute() {
+        resetPlayerContext();
+        const route = ROUTES[currentRouteIndex];
+        
+        if (route.type === 'native' && (currentPlayUrl.includes('.m3u8') || currentPlayUrl.includes('.mp4'))) {
+            document.getElementById('videoPlayer').style.display = 'block';
+            initHlsPlayer(currentPlayUrl);
+            
+        } else if (route.type === 'tailwind_hls') {
+            const tpl = document.getElementById('tailwind-player-tpl').value;
+            const injectedHtml = tpl.replace('{{VIDEO_URL}}', currentPlayUrl.replace(/"/g, '&quot;'));
+            
+            const iframe = document.getElementById('iframePlayer');
+            iframe.style.display = 'block';
+            iframe.srcdoc = injectedHtml;
+            
+        } else {
+            let iframeUrl = currentPlayUrl;
+            if (route.prefix) iframeUrl = route.prefix + encodeURIComponent(currentPlayUrl);
+            document.getElementById('iframePlayer').style.display = 'block';
+            document.getElementById('iframePlayer').src = iframeUrl;
+        }
+    }
+
+    function resetPlayerContext() {
+        if (hls) { hls.destroy(); hls = null; }
+        const video = document.getElementById('videoPlayer');
+        video.pause();
+        video.removeAttribute('src'); 
+        video.load(); 
+        
+        const container = document.getElementById('video-container');
+        if (container.classList.contains('webfull')) toggleWebFullscreen();
+        container.classList.remove('portrait');
+
+        const iframe = document.getElementById('iframePlayer');
+        iframe.src = '';
+        iframe.removeAttribute('srcdoc'); 
+        video.style.display = 'none';
+        iframe.style.display = 'none';
+    }
+
+    function initHlsPlayer(url) {
+        const video = document.getElementById('videoPlayer');
+        if (Hls.isSupported()) {
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) document.getElementById('debugText').innerHTML += "<br>⚠️ 防盗链拦截！请点下方【内置HLS解析】。";
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.addEventListener('loadedmetadata', () => video.play().catch(()=>{}));
+        }
+    }
+
+    // 智能横竖屏适配
+    document.getElementById('videoPlayer').addEventListener('loadedmetadata', function() {
+        const container = document.getElementById('video-container');
+        if (this.videoHeight > this.videoWidth) container.classList.add('portrait');
+        else container.classList.remove('portrait');
+    });
+
+    // ==================== 初始化 ====================
+    window.onload = function() {
+        loadHome();
+        const hash = window.location.hash;
+        if (hash.startsWith('#detail/')) {
+            showView('player-view');
+            openDetail(hash.replace('#detail/', ''));
+        }
+    };
+</script>
+</body>
+</html>
