@@ -45,7 +45,7 @@
         .name{min-height:32px;font-size:12px;font-weight:600;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
         .loading{text-align:center;padding:50px 10px;color:var(--muted)}
 
-        /* ==================== 沉浸式短剧播放页 (仿抖音/快手) ==================== */
+        /* ==================== 沉浸式短剧播放页 ==================== */
         #player-view { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #000; z-index: 1000; overflow: hidden; }
         
         /* 视频图层 */
@@ -69,15 +69,15 @@
         .ui-logo-icon::after { content: ''; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid #fff; margin-left: 2px; }
         .ui-logo-text { display: flex; flex-direction: column; line-height: 1.1; }
         .ui-logo-text b { font-size: 15px; font-weight: 900; letter-spacing: 1px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-        .ui-logo-text b span { color: var(--yellow); font-size: 10px; vertical-align: top; }
+        .ui-logo-text b span { color: var(--yellow); font-size: 10px; vertical-align: top; margin-left: 2px;}
         .ui-logo-text small { font-size: 10px; color: rgba(255,255,255,0.8); font-family: monospace; }
 
         /* 右侧互动区 */
-        .ui-right { position: absolute; right: 12px; bottom: 130px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
-        .action-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; cursor: pointer; }
-        .action-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; font-size: 18px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+        .ui-right { position: absolute; right: 12px; bottom: 130px; display: flex; flex-direction: column; gap: 20px; align-items: center; }
+        .action-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: #fff; cursor: pointer; }
+        .action-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; font-size: 18px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(4px); }
         .action-item span { font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
-        .speed-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.3); display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; }
+        .speed-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.3); display: flex; justify-content: center; align-items: center; font-size: 13px; font-weight: bold; backdrop-filter: blur(4px); }
 
         /* 底部信息区 */
         .ui-bottom { background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 40%, transparent 100%); padding-top: 40px; }
@@ -124,7 +124,7 @@
 </head>
 <body>
 
-    <!-- 主页视图 (保留网格布局) -->
+    <!-- 主页视图 -->
     <section id="home-view" class="view active">
         <header class="header">
             <div class="top">
@@ -154,13 +154,12 @@
     <section id="player-view" class="view">
         
         <div class="video-layer">
-            <video id="videoPlayer" playsinline webkit-playsinline></video>
+            <video id="videoPlayer" autoplay playsinline webkit-playsinline></video>
             <iframe id="iframePlayer" allow="autoplay;fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
         </div>
         
         <div class="ui-layer">
             <div class="click-layer" id="clickLayer"></div>
-            
             <div class="play-indicator" id="playIndicator">▶</div>
 
             <!-- 顶部导航 -->
@@ -169,30 +168,22 @@
                 <div class="ui-logo-box">
                     <div class="ui-logo-icon"></div>
                     <div class="ui-logo-text">
-                        <b>黄果短剧<span>AI</span></b>
-                        <small>huangguoai.com</small>
+                        <!-- 修改了文案和域名 -->
+                        <b>黄果短剧聚合<span>AI</span></b>
+                        <small>hgav.pages.dev</small>
                     </div>
                 </div>
             </div>
 
-            <!-- 右侧互动按钮组 -->
+            <!-- 右侧互动按钮组 (仅保留分享和倍速) -->
             <div class="ui-right">
-                <div class="action-item">
-                    <div class="action-icon">🤍</div>
-                    <span>1.2w</span>
-                </div>
-                <div class="action-item">
-                    <div class="action-icon">⭐</div>
-                </div>
-                <div class="action-item">
-                    <div class="action-icon">💬</div>
-                    <span>142</span>
-                </div>
-                <div class="action-item">
+                <div class="action-item" onclick="shareAction()">
                     <div class="action-icon">➦</div>
+                    <span>分享</span>
                 </div>
-                <div class="action-item">
-                    <div class="speed-icon">1X</div>
+                <div class="action-item" onclick="toggleSpeed()">
+                    <div class="speed-icon" id="speedText">1X</div>
+                    <span>倍速</span>
                 </div>
             </div>
 
@@ -215,7 +206,6 @@
                     </div>
                     <div class="ui-ep-right">
                         <span>︿</span>
-                        <span style="font-family:monospace;font-size:18px">[ ]</span>
                     </div>
                 </div>
             </div>
@@ -243,7 +233,7 @@
         </div>
     </div>
 
-    <!-- Tailwind HLS 纯净播放器代码模板 (已内置于 iframe 供给路线 2 使用) -->
+    <!-- Tailwind HLS 纯净播放器代码模板 -->
 <textarea id="tailwind-player-tpl" style="display:none;">
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -261,15 +251,22 @@
 </head>
 <body>
     <div class="video-wrapper">
-        <video id="video-player" playsinline></video>
+        <video id="video-player" autoplay playsinline></video>
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const video = document.getElementById('video-player');
             const streamUrl = "{{VIDEO_URL}}"; 
+            const initialSpeed = parseFloat("{{PLAY_SPEED}}") || 1.0;
             let hls = null;
 
-            // 点击 iframe 内的视频也实现播放/暂停
+            // 监听父级传递的倍速变更消息
+            window.addEventListener('message', (e) => {
+                if (e.data && e.data.type === 'set-speed') {
+                    video.playbackRate = e.data.speed;
+                }
+            });
+
             video.addEventListener('click', () => {
                 if(video.paused) video.play(); else video.pause();
             });
@@ -281,11 +278,17 @@
                     hls = new Hls({ enableWorker: true, lowLatencyMode: true });
                     hls.loadSource(url);
                     hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        video.playbackRate = initialSpeed;
+                        video.play().catch(()=>{});
+                    });
                 } 
                 else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
-                    video.addEventListener('loadedmetadata', () => video.play().catch(()=>{}));
+                    video.addEventListener('loadedmetadata', () => {
+                        video.playbackRate = initialSpeed;
+                        video.play().catch(()=>{});
+                    });
                 }
             };
             loadStream(streamUrl);
@@ -302,6 +305,9 @@
     let currentRouteIndex = 0;
     let categoryMap = {};
     window.currentTracks = [];
+    
+    // 全局播放倍速状态
+    let currentPlaybackSpeed = 1.0;
 
     const ROUTES = [
         { type: 'native', prefix: '' },
@@ -309,6 +315,43 @@
         { type: 'tailwind_hls', prefix: '' }, 
         { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
+
+    // ==================== 右侧功能逻辑 (倍速 & 分享) ====================
+    function toggleSpeed() {
+        const speeds = [1.0, 1.25, 1.5, 2.0];
+        let idx = speeds.indexOf(currentPlaybackSpeed);
+        idx = (idx + 1) % speeds.length;
+        currentPlaybackSpeed = speeds[idx];
+        
+        // 更新 UI 文本
+        document.getElementById('speedText').innerText = currentPlaybackSpeed + 'X';
+        
+        // 调节原生视频倍速
+        const videoEl = document.getElementById('videoPlayer');
+        if (videoEl && videoEl.style.display !== 'none') {
+            videoEl.playbackRate = currentPlaybackSpeed;
+        }
+        
+        // 通知内置 HLS Iframe 倍速
+        const iframe = document.getElementById('iframePlayer');
+        if (iframe && iframe.contentWindow && ROUTES[currentRouteIndex].type === 'tailwind_hls') {
+            iframe.contentWindow.postMessage({ type: 'set-speed', speed: currentPlaybackSpeed }, '*');
+        }
+    }
+
+    function shareAction() {
+        if (navigator.share) {
+            navigator.share({ title: document.title, url: location.href }).catch(()=>{});
+        } else {
+            const input = document.createElement('input');
+            input.value = location.href;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            alert('当前页面链接已复制！');
+        }
+    }
 
     // ==================== 底部弹窗逻辑 ====================
     function toggleSheet() {
@@ -568,7 +611,6 @@
         const rawTitle = titleEl ? titleEl.textContent.trim() : '未知剧集';
         
         document.getElementById('uiTitle').innerText = rawTitle;
-        // 抓取简介，如果有的话
         const descEl = doc.querySelector('.hg-web-detail__desc');
         document.getElementById('uiDesc').innerText = descEl ? descEl.textContent.trim() : rawTitle;
 
@@ -649,12 +691,14 @@
         
         if (route.type === 'native' && (currentPlayUrl.includes('.m3u8') || currentPlayUrl.includes('.mp4'))) {
             document.getElementById('videoPlayer').style.display = 'block';
-            document.getElementById('clickLayer').style.pointerEvents = 'auto'; // 开启原生视频的点击层
+            document.getElementById('clickLayer').style.pointerEvents = 'auto'; // 开启原生视频点击层
             initHlsPlayer(currentPlayUrl);
             
         } else if (route.type === 'tailwind_hls') {
             const tpl = document.getElementById('tailwind-player-tpl').value;
-            const injectedHtml = tpl.replace('{{VIDEO_URL}}', currentPlayUrl.replace(/"/g, '&quot;'));
+            // 注入 URL 和全局设定的初始倍速
+            const injectedHtml = tpl.replace('{{VIDEO_URL}}', currentPlayUrl.replace(/"/g, '&quot;'))
+                                    .replace('{{PLAY_SPEED}}', currentPlaybackSpeed);
             const iframe = document.getElementById('iframePlayer');
             iframe.style.display = 'block';
             document.getElementById('clickLayer').style.pointerEvents = 'none'; // iframe自己处理点击
@@ -663,7 +707,7 @@
             let iframeUrl = route.prefix ? route.prefix + encodeURIComponent(currentPlayUrl) : currentPlayUrl;
             const iframe = document.getElementById('iframePlayer');
             iframe.style.display = 'block';
-            document.getElementById('clickLayer').style.pointerEvents = 'none'; // 外部解析 iframe 自己处理
+            document.getElementById('clickLayer').style.pointerEvents = 'none'; 
             iframe.src = iframeUrl;
         }
     }
@@ -689,10 +733,16 @@
             hls = new Hls();
             hls.loadSource(url);
             hls.attachMedia(videoEl);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play().catch(()=>{}));
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                videoEl.playbackRate = currentPlaybackSpeed;
+                videoEl.play().catch(()=>{});
+            });
         } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
             videoEl.src = url;
-            videoEl.addEventListener('loadedmetadata', () => videoEl.play().catch(()=>{}));
+            videoEl.addEventListener('loadedmetadata', () => {
+                videoEl.playbackRate = currentPlaybackSpeed;
+                videoEl.play().catch(()=>{});
+            });
         }
     }
 
@@ -707,4 +757,3 @@
 </script>
 </body>
 </html>
-```<FollowUp>请问您还需要对这个仿抖音全屏短剧的样式进行哪些微调？比如右侧图标的大小或是背景底色的透明度？</FollowUp>
