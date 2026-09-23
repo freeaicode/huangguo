@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- 全局禁用 Referrer 防盗链 -->
     <meta name="referrer" content="no-referrer">
-    <title>黄果短剧 - 全终端封面修复版</title>
+    <title>黄果短剧 - 封面防盗链破解版</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -157,10 +156,21 @@
         { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
 
-    // 格式化图片 URL 补全逻辑
+    // 标准 URL 修正逻辑
     function formatPicUrl(rawUrl) {
         if (!rawUrl) return '';
         rawUrl = rawUrl.trim();
+        
+        // 解析 Next.js 图片优化接口 (/_next/image?url=xxx)
+        if (rawUrl.includes('/_next/image')) {
+            try {
+                const dummyUrl = rawUrl.startsWith('http') ? rawUrl : SITE + rawUrl;
+                const u = new URL(dummyUrl);
+                const realUrl = u.searchParams.get('url');
+                if (realUrl) rawUrl = decodeURIComponent(realUrl);
+            } catch(e) {}
+        }
+
         if (rawUrl.startsWith('//')) {
             return 'https:' + rawUrl;
         }
@@ -174,20 +184,18 @@
         return rawUrl;
     }
 
-    // 从 DOM 节点多渠道安全提取图片地址
+    // 从 DOM 节点全方位提取图片
     function extractImgUrl(cardEl) {
         if (!cardEl) return '';
         
-        // 查找可能包含图片的元素
         const imgEl = cardEl.querySelector('img, [data-src], [data-original], [data-lazy-src], [style*="background"]');
         if (!imgEl) return '';
 
         let src = imgEl.getAttribute('data-src') || 
                   imgEl.getAttribute('data-original') || 
                   imgEl.getAttribute('data-lazy-src') || 
-                  imgEl.getAttribute('src');
+                  imgEl.getAttribute('src') || '';
 
-        // 尝试解析内联样式背景图 style="background-image: url(...)"
         if (!src && imgEl.getAttribute('style')) {
             const style = imgEl.getAttribute('style');
             const match = style.match(/url\(['"]?(.*?)['"]?\)/);
@@ -234,7 +242,6 @@
             const titleTag = card.querySelector('.hg-drama-card__title');
             const title = titleTag ? titleTag.textContent.trim() : '未知剧名';
             
-            // 使用改进后的图片抓取逻辑
             const pic = extractImgUrl(card);
             
             const epTag = card.querySelector('.hg-drama-card__episode');
@@ -329,11 +336,13 @@
         list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
-            const picUrl = item.vod_pic;
-            
-            // referrerpolicy="no-referrer" 防盗链，onerror 提供降级占位图
-            const imgHtml = picUrl 
-                ? `<img src="${picUrl}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.parentNode.innerHTML='<div class=\\'no-pic\\'>📷 暂无封面</div>';" />`
+            const directPicUrl = item.vod_pic;
+            // 免费公开图片代理中转，用于破解防盗链
+            const proxyPicUrl = directPicUrl ? ('https://wsrv.nl/?url=' + encodeURIComponent(directPicUrl)) : '';
+
+            // 机制：优先尝试直接加载，失败后 onerror 自动重试代理地址
+            const imgHtml = directPicUrl 
+                ? `<img src="${directPicUrl}" referrerpolicy="no-referrer" loading="lazy" onerror="if(!this.dataset.retry){this.dataset.retry=1; this.src='${proxyPicUrl}';} else {this.onerror=null; this.parentNode.innerHTML='<div class=\\'no-pic\\'>📷 暂无封面</div>';}" />`
                 : `<div class="no-pic">📷 暂无封面</div>`;
 
             card.innerHTML = `
