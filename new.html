@@ -3,22 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 全局禁用 Referrer 防盗链 -->
     <meta name="referrer" content="no-referrer">
-    <title>黄果短剧 - 全终端适配移动版</title>
+    <title>黄果短剧 - 全终端封面修复版</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background: #f0f2f5; color: #333; }
         .container { max-width: 1200px; margin: 0 auto; }
         
-        /* 头部与搜索栏 - 响应式布局 */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
         .header h2 { margin: 0; font-size: 20px; color: #1a1a1a; }
         .search-box { display: flex; gap: 8px; flex: 1; max-width: 320px; }
         .search-box input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; }
         .search-box button { padding: 8px 14px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; white-space: nowrap; }
         
-        /* 移动端支持触摸横向滑动的分类导航栏 */
         .category-bar { 
             display: flex; 
             gap: 8px; 
@@ -31,7 +30,7 @@
             white-space: nowrap;
             -webkit-overflow-scrolling: touch;
         }
-        .category-bar::-webkit-scrollbar { display: none; } /* 隐藏移动端滚动条 */
+        .category-bar::-webkit-scrollbar { display: none; }
         .cat-tag { 
             display: inline-block;
             padding: 6px 14px; 
@@ -47,16 +46,16 @@
         .cat-tag.highlight { background: #fff0f6; color: #d63384; border: 1px solid #fcc2d7; }
         .cat-tag.highlight.active { background: #d63384; color: white; }
 
-        /* 视频网格 - 手机两列/电脑多列 */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
         .card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); cursor: pointer; }
         .card-img { height: 210px; background: #e9ecef; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
-        .card-img img { width: 100%; height: 100%; object-fit: cover; }
+        .card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .no-pic { color: #868e96; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #e9ecef; }
+        
         .card-info { padding: 8px 10px; }
         .card-title { font-size: 13px; font-weight: bold; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-remarks { font-size: 11px; color: #868e96; }
 
-        /* 播放器模态框 - 移动端全屏友好 */
         #player-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding-top: 10px; }
         .close-btn { position: fixed; top: 10px; right: 15px; color: white; font-size: 32px; cursor: pointer; z-index: 1001; background: rgba(0,0,0,0.5); width: 40px; height: 40px; border-radius: 50%; text-align: center; line-height: 36px; }
         
@@ -64,7 +63,6 @@
         video { width: 100%; height: 50vh; max-height: 500px; outline: none; display: none; }
         iframe { width: 100%; height: 50vh; max-height: 500px; border: none; display: none; background: #111; }
         
-        /* 播放控制与集数列表 */
         .controls-area { width: 100%; max-width: 900px; padding: 12px; }
         
         .route-bar { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
@@ -79,15 +77,13 @@
         #loading { display: none; text-align: center; padding: 20px; color: #007bff; font-weight: bold; font-size: 14px; }
         .debug-box { background: #1b1b1b; color: #2ea44f; padding: 8px 10px; font-family: monospace; font-size: 11px; word-break: break-all; border-radius: 4px; line-height: 1.4; margin-bottom: 10px; border: 1px solid #333; }
 
-        /* 移动端 (手机) 专项样式适配 */
         @media (max-width: 768px) {
             body { padding: 10px; }
             .header { flex-direction: column; align-items: stretch; }
             .search-box { max-width: 100%; }
-            .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } /* 手机端强制双列瀑布流 */
+            .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .card-img { height: 180px; }
-            video, iframe { height: 35vh; } /* 移动端减小播放器占比，留出剧集选择区域 */
-            .route-label { display: block; }
+            video, iframe { height: 35vh; }
         }
     </style>
 </head>
@@ -102,7 +98,6 @@
         </div>
     </div>
     
-    <!-- 分类导航栏：包含站方原生频道与热门频道，支持触屏滑动 -->
     <div class="category-bar" id="categoryBar">
         <div class="cat-tag active" onclick="selectCategory('首页', this)">首页推荐</div>
         <div class="cat-tag highlight" onclick="selectCategory('排行榜', this)">🔥 排行榜</div>
@@ -113,8 +108,12 @@
         <div class="cat-tag" onclick="selectCategory('逆袭', this)">逆袭</div>
         <div class="cat-tag" onclick="selectCategory('战神', this)">战神</div>
         <div class="cat-tag" onclick="selectCategory('重生', this)">重生</div>
+        <div class="cat-tag" onclick="selectCategory('穿越', this)">穿越</div>
         <div class="cat-tag" onclick="selectCategory('甜宠', this)">甜宠</div>
         <div class="cat-tag" onclick="selectCategory('霸总', this)">霸总</div>
+        <div class="cat-tag" onclick="selectCategory('神豪', this)">神豪</div>
+        <div class="cat-tag" onclick="selectCategory('言情', this)">言情</div>
+        <div class="cat-tag" onclick="selectCategory('复仇', this)">复仇</div>
     </div>
 
     <div id="loading">正在加载数据...</div>
@@ -132,7 +131,6 @@
     <div class="controls-area">
         <div class="debug-box" id="debugText">等待获取播放源...</div>
         
-        <!-- 修复后的解析线路 -->
         <div class="route-bar" id="routeBar">
             <div class="route-label">播放线路切换 (无法播放时请点击右侧线路):</div>
             <button class="route-btn active" onclick="switchRoute(0)">原生直连</button>
@@ -150,14 +148,54 @@
     let hls = null;
     let currentPlayUrl = ''; 
     let currentRouteIndex = 0;
+    let categoryMap = {};
 
-    // 修复替换后的公用云解析线路（针对网页端防盗链强力破解）
     const ROUTES = [
         { type: 'native', prefix: '' },
         { type: 'iframe', prefix: 'https://jx.playerjy.com/?url=' },
-        { type: 'iframe', prefix: 'https://jx.jsonplayer.com/player/?url=' }, // 全新替换的通用云解析
-        { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }          // 备用通用解析
+        { type: 'iframe', prefix: 'https://jx.jsonplayer.com/player/?url=' },
+        { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
+
+    // 格式化图片 URL 补全逻辑
+    function formatPicUrl(rawUrl) {
+        if (!rawUrl) return '';
+        rawUrl = rawUrl.trim();
+        if (rawUrl.startsWith('//')) {
+            return 'https:' + rawUrl;
+        }
+        if (!rawUrl.startsWith('http')) {
+            try {
+                return new URL(rawUrl, SITE).href;
+            } catch(e) {
+                return SITE + (rawUrl.startsWith('/') ? '' : '/') + rawUrl;
+            }
+        }
+        return rawUrl;
+    }
+
+    // 从 DOM 节点多渠道安全提取图片地址
+    function extractImgUrl(cardEl) {
+        if (!cardEl) return '';
+        
+        // 查找可能包含图片的元素
+        const imgEl = cardEl.querySelector('img, [data-src], [data-original], [data-lazy-src], [style*="background"]');
+        if (!imgEl) return '';
+
+        let src = imgEl.getAttribute('data-src') || 
+                  imgEl.getAttribute('data-original') || 
+                  imgEl.getAttribute('data-lazy-src') || 
+                  imgEl.getAttribute('src');
+
+        // 尝试解析内联样式背景图 style="background-image: url(...)"
+        if (!src && imgEl.getAttribute('style')) {
+            const style = imgEl.getAttribute('style');
+            const match = style.match(/url\(['"]?(.*?)['"]?\)/);
+            if (match) src = match[1];
+        }
+
+        return formatPicUrl(src);
+    }
     
     async function fetchHtml(url) {
         try {
@@ -196,8 +234,8 @@
             const titleTag = card.querySelector('.hg-drama-card__title');
             const title = titleTag ? titleTag.textContent.trim() : '未知剧名';
             
-            const imgTag = card.querySelector('[data-src], img');
-            const pic = imgTag ? (imgTag.getAttribute('data-src') || imgTag.getAttribute('src')) : '';
+            // 使用改进后的图片抓取逻辑
+            const pic = extractImgUrl(card);
             
             const epTag = card.querySelector('.hg-drama-card__episode');
             const remarks = epTag ? epTag.textContent.trim() : '';
@@ -207,22 +245,63 @@
         return list;
     }
 
-    function selectCategory(keyword, el) {
+    async function loadHome() {
+        document.getElementById('videoGrid').innerHTML = '';
+        const html = await fetchHtml(SITE + '/');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const navLinks = doc.querySelectorAll('a');
+        navLinks.forEach(a => {
+            const text = a.textContent.trim();
+            const href = a.getAttribute('href');
+            if (text && href && !href.startsWith('javascript') && !href.startsWith('#')) {
+                categoryMap[text] = formatPicUrl(href);
+            }
+        });
+
+        renderGrid(parseGridCards(html));
+    }
+
+    async function selectCategory(keyword, el) {
         document.querySelectorAll('.cat-tag').forEach(tag => tag.classList.remove('active'));
         el.classList.add('active');
         document.getElementById('searchInput').value = (keyword === '首页') ? '' : keyword;
         
         if (keyword === '首页') {
-            loadHome();
-        } else {
-            doSearch(keyword);
+            return loadHome();
         }
-    }
 
-    async function loadHome() {
         document.getElementById('videoGrid').innerHTML = '';
-        const html = await fetchHtml(SITE + '/');
-        renderGrid(parseGridCards(html));
+        
+        let targetUrl = categoryMap[keyword];
+        if (!targetUrl) {
+            for (let key in categoryMap) {
+                if (key.includes(keyword) || keyword.includes(key)) {
+                    targetUrl = categoryMap[key];
+                    break;
+                }
+            }
+        }
+
+        if (!targetUrl) {
+            targetUrl = SITE + '/search/video/' + encodeURIComponent(keyword) + '/';
+        }
+
+        const html = await fetchHtml(targetUrl);
+        let list = parseGridCards(html);
+        
+        if (list.length === 0 && !targetUrl.includes('/search/')) {
+            const fallbackUrl = SITE + '/search/video/' + encodeURIComponent(keyword) + '/';
+            const fallbackHtml = await fetchHtml(fallbackUrl);
+            list = parseGridCards(fallbackHtml);
+        }
+
+        if(list.length === 0) {
+            document.getElementById('videoGrid').innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 40px; color:#999;">该分类下暂无内容</div>';
+        } else {
+            renderGrid(list);
+        }
     }
 
     async function doSearch(kw) {
@@ -238,7 +317,7 @@
         const html = await fetchHtml(SITE + '/search/video/' + encodeURIComponent(kw) + '/');
         const list = parseGridCards(html);
         if(list.length === 0) {
-            document.getElementById('videoGrid').innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 40px; color:#999;">未找到相关短剧，请更换分类</div>';
+            document.getElementById('videoGrid').innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 40px; color:#999;">未找到相关短剧</div>';
         } else {
             renderGrid(list);
         }
@@ -250,11 +329,15 @@
         list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
-            let picUrl = item.vod_pic;
-            if(picUrl && !picUrl.startsWith('http')) picUrl = SITE + picUrl;
+            const picUrl = item.vod_pic;
             
+            // referrerpolicy="no-referrer" 防盗链，onerror 提供降级占位图
+            const imgHtml = picUrl 
+                ? `<img src="${picUrl}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.parentNode.innerHTML='<div class=\\'no-pic\\'>📷 暂无封面</div>';" />`
+                : `<div class="no-pic">📷 暂无封面</div>`;
+
             card.innerHTML = `
-                <div class="card-img"><img src="${picUrl}" onerror="this.style.display='none'; this.parentNode.innerHTML='无封面'" /></div>
+                <div class="card-img">${imgHtml}</div>
                 <div class="card-info">
                     <h3 class="card-title" title="${item.vod_name}">${item.vod_name}</h3>
                     <div class="card-remarks">${item.vod_remarks}</div>
@@ -278,7 +361,7 @@
             const href = a.getAttribute('href');
             const eid = a.getAttribute('data-ep-id');
             const name = eid ? '第' + eid + '集' : a.textContent.trim();
-            if (href) tracks.push({ name: name, url: SITE + href, ep: eid || '1' });
+            if (href) tracks.push({ name: name, url: formatPicUrl(href), ep: eid || '1' });
         });
         
         if (tracks.length > 0) {
@@ -339,7 +422,6 @@
         currentPlayUrl = playUrl;
         document.getElementById('debugText').innerHTML = "✅ 源地址获取成功！<br>若原生播放黑屏/卡顿，请点击下方【公共解析 1/2/3】切换。";
         
-        // 自动选择最佳路线
         if (!playUrl.includes('.m3u8') && !playUrl.includes('.mp4')) {
             switchRoute(1);
         } else {
@@ -393,7 +475,7 @@
             hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
-                    document.getElementById('debugText').innerHTML += "<br><span style='color:#dc3545'>⚠️ 网页端防盗链拦截黑屏！请点下方【公共解析 1 或 2】播放。</span>";
+                    document.getElementById('debugText').innerHTML += "<br><span style='color:#dc3545'>⚠️ 防盗链拦截黑屏！请点下方【公共解析 1/2/3】播放。</span>";
                 }
             });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
