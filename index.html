@@ -3,39 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>黄果短剧 - 网页播放器</title>
+    <title>黄果短剧 - 网页播放器 (DOM解析版)</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
         .container { max-width: 1200px; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .search-box { display: flex; gap: 10px; }
-        .search-box input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+        .search-box input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; width: 200px; }
         .search-box button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .search-box button:hover { background: #0056b3; }
         
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
         .card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
         .card:hover { transform: translateY(-5px); }
-        /* 注意: 由于原站图片加密，这里可能无法直接显示，显示为灰色占位 */
-        .card-img { height: 260px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #888; font-size: 12px; text-align: center; padding: 10px; overflow: hidden; }
+        .card-img { height: 260px; background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #888; font-size: 12px; text-align: center; overflow: hidden; position: relative; }
         .card-img img { width: 100%; height: 100%; object-fit: cover; }
         .card-info { padding: 12px; }
         .card-title { font-size: 14px; font-weight: bold; margin: 0 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-remarks { font-size: 12px; color: #666; }
 
-        /* 播放器弹窗 */
         #player-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
         .close-btn { position: absolute; top: 20px; right: 30px; color: white; font-size: 30px; cursor: pointer; font-weight: bold; }
-        #video-container { width: 80%; max-width: 900px; background: black; }
-        video { width: 100%; height: auto; max-height: 70vh; }
+        #video-container { width: 90%; max-width: 900px; background: black; display: flex; justify-content: center; }
+        video { width: 100%; max-height: 65vh; outline: none; }
         
-        /* 选集列表 */
-        .ep-list { margin-top: 20px; width: 80%; max-width: 900px; display: flex; flex-wrap: wrap; gap: 10px; max-height: 20vh; overflow-y: auto; }
-        .ep-btn { padding: 8px 12px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; cursor: pointer; }
+        .ep-list { margin-top: 20px; width: 90%; max-width: 900px; display: flex; flex-wrap: wrap; gap: 8px; max-height: 20vh; overflow-y: auto; padding-bottom: 20px; }
+        .ep-btn { padding: 6px 10px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .ep-btn:hover, .ep-btn.active { background: #007bff; border-color: #007bff; }
         
-        #loading { display: none; text-align: center; padding: 20px; color: #666; }
+        #loading { display: none; text-align: center; padding: 20px; color: #007bff; font-weight: bold; }
+        .error-msg { color: red; text-align: center; padding: 20px; }
     </style>
 </head>
 <body>
@@ -44,7 +42,7 @@
     <div class="header">
         <h2>黄果短剧 (Web解析版)</h2>
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="搜索短剧...">
+            <input type="text" id="searchInput" placeholder="输入剧名搜索..." onkeydown="if(event.keyCode==13) doSearch()">
             <button onclick="doSearch()">搜索</button>
         </div>
     </div>
@@ -56,73 +54,84 @@
 <div id="player-modal">
     <div class="close-btn" onclick="closePlayer()">&times;</div>
     <div id="video-container">
-        <video id="videoPlayer" controls></video>
+        <video id="videoPlayer" controls playsinline></video>
     </div>
     <div class="ep-list" id="epList"></div>
 </div>
 
 <script>
     const SITE = 'https://huangguoai.com';
-    // 必须使用 CORS 代理，否则浏览器会拦截请求。这里使用公共免费代理演示
-    const CORS_PROXY = 'https://corsproxy.io/?'; 
-
-    let hls = null;
-
-    // ---------- 核心解析逻辑 (移植自你的代码) ----------
     
-    function stripTags(s) { return String(s || '').replace(/<[^>]*>/g, '').trim(); }
-    
+    // 使用 allorigins 作为 CORS 代理，它返回 JSON 格式包裹的 HTML，相对更稳定
     async function fetchHtml(url) {
         try {
             document.getElementById('loading').style.display = 'block';
-            // 将目标 URL 编码后拼接在代理服务后面
+            document.getElementById('videoGrid').innerHTML = ''; // 清空当前视图
+            
             const targetUrl = encodeURIComponent(url);
-            const res = await fetch(CORS_PROXY + targetUrl);
-            const text = await res.text();
+            const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+            
+            const res = await fetch(proxyUrl);
+            if (!res.ok) throw new Error('代理请求失败');
+            const data = await res.json();
+            
             document.getElementById('loading').style.display = 'none';
-            return text;
+            return data.contents || '';
         } catch (e) {
-            console.error("Fetch Error (可能代理失效或被墙):", e);
-            document.getElementById('loading').innerText = '网络请求失败，可能是跨域代理失效。';
+            console.error("抓取失败:", e);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('videoGrid').innerHTML = `<div class="error-msg">网络请求失败！<br>原因：目标网站可能开启了人机验证(Cloudflare)，或者公共跨域代理服务器拥堵。<br>请稍后重试。</div>`;
             return '';
         }
     }
 
+    // ---------- DOM 方式解析数据 (比正则稳定100倍) ----------
+    
     function parseGridCards(html) {
         if (!html) return [];
         const list = [];
         const seen = {};
-        // 简化版正则，直接匹配卡片
-        const re = /<div\s+class="[^"]*\bhg-drama-card\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
-        let m;
-        while ((m = re.exec(html)) !== null) {
-            const block = m[1];
-            const a = block.match(/href="[^"]*\/detail\/(\d+)\/[^"]*"/);
-            if (!a) continue;
-            const vid = a[1];
-            if (seen[vid]) continue;
+        
+        // 使用浏览器原生的 DOM 解析器
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // 查找所有剧集卡片
+        const cards = doc.querySelectorAll('.hg-drama-card');
+        
+        cards.forEach(card => {
+            const aTag = card.querySelector('a[href*="/detail/"]');
+            if (!aTag) return;
             
-            const imgM = block.match(/data-src="([^"]+)"/) || block.match(/src="([^"]+)"/);
-            let title = '';
-            const t = block.match(/hg-drama-card__title[^>]*>([\s\S]*?)<\/a>/);
-            if (t) title = stripTags(t[1]);
-            if (!title) continue;
+            const href = aTag.getAttribute('href');
+            const vidMatch = href.match(/\/detail\/(\d+)/);
+            if (!vidMatch) return;
+            const vid = vidMatch[1];
             
-            const ep = block.match(/hg-drama-card__episode[^>]*>([\s\S]*?)<\/span>/);
-            const remarks = ep ? stripTags(ep[1]) : '';
-            
+            if (seen[vid]) return; // 去重
             seen[vid] = true;
+            
+            const titleTag = card.querySelector('.hg-drama-card__title');
+            const title = titleTag ? titleTag.textContent.trim() : '未知剧名';
+            
+            const imgTag = card.querySelector('[data-src], img');
+            const pic = imgTag ? (imgTag.getAttribute('data-src') || imgTag.getAttribute('src')) : '';
+            
+            const epTag = card.querySelector('.hg-drama-card__episode');
+            const remarks = epTag ? epTag.textContent.trim() : '';
+            
             list.push({
                 vod_id: vid,
                 vod_name: title,
-                vod_pic: imgM ? imgM[1] : '', // 原图地址，网页端因为加密可能无法显示
+                vod_pic: pic,
                 vod_remarks: remarks
             });
-        }
+        });
+        
         return list;
     }
 
-    // ---------- 交互逻辑 ----------
+    // ---------- 页面交互逻辑 ----------
 
     async function loadHome() {
         const html = await fetchHtml(SITE + '/');
@@ -140,18 +149,24 @@
 
     function renderGrid(list) {
         const grid = document.getElementById('videoGrid');
-        grid.innerHTML = '';
-        if(list.length === 0) {
-            grid.innerHTML = '<p>未找到内容或抓取失败。</p>';
+        if(list.length === 0 && !grid.innerHTML.includes('error-msg')) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#666;">未找到内容，或抓取规则失效。</div>';
             return;
         }
+        
+        grid.innerHTML = ''; // 清空
         list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
-            // 注意：这里放的是原始图片链接，由于对方AES加密，图片可能是花屏或加载不出来
+            // 添加 onerror 处理图片加载失败（因加密）的问题
+            let picUrl = item.vod_pic;
+            if(picUrl && !picUrl.startsWith('http')) {
+                picUrl = SITE + picUrl;
+            }
+            
             card.innerHTML = `
                 <div class="card-img">
-                    <img src="${item.vod_pic}" alt="${item.vod_name}" onerror="this.style.display='none'; this.parentNode.innerHTML='(原站图片已加密)'" />
+                    <img src="${picUrl}" alt="${item.vod_name}" onerror="this.style.display='none'; this.parentNode.innerHTML='图片已加密<br>无法直接显示'" />
                 </div>
                 <div class="card-info">
                     <h3 class="card-title" title="${item.vod_name}">${item.vod_name}</h3>
@@ -163,35 +178,36 @@
         });
     }
 
-    // ---------- 播放逻辑 ----------
+    // ---------- 播放解析逻辑 ----------
+    
+    let hls = null;
 
     async function openDetail(id) {
         document.getElementById('loading').style.display = 'block';
         const html = await fetchHtml(SITE + '/detail/' + id + '/');
-        const tracks = [];
-        
-        // 解析选集
-        const gridM = html.match(/<div\s+class="[^"]*\bhg-web-detail__ep-grid\b[^"]*"[^>]*>([\s\S]*?)<\/div>/);
-        if (gridM) {
-            const are = /<a\b[^>]*>[\s\S]*?<\/a>/g;
-            let m;
-            while ((m = are.exec(gridM[1])) !== null) {
-                const tag = m[0];
-                const hrefM = tag.match(/href="([^"]+)"/);
-                if (!hrefM) continue;
-                const eidM = tag.match(/data-ep-id="([^"]*)"/);
-                const name = eidM ? '第' + eidM[1] + '集' : stripTags(tag);
-                tracks.push({ name: name, url: SITE + hrefM[1], ep: eidM ? eidM[1] : '1' });
-            }
-        }
-        
         document.getElementById('loading').style.display = 'none';
+        if (!html) return;
+        
+        const tracks = [];
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // 抓取选集列表
+        const epLinks = doc.querySelectorAll('.hg-web-detail__ep-grid a');
+        epLinks.forEach(a => {
+            const href = a.getAttribute('href');
+            const eid = a.getAttribute('data-ep-id');
+            const name = eid ? '第' + eid + '集' : a.textContent.trim();
+            if (href) {
+                tracks.push({ name: name, url: SITE + href, ep: eid || '1' });
+            }
+        });
         
         if (tracks.length > 0) {
             showPlayer(tracks);
-            playEpisode(tracks[0].url, tracks[0].ep, 0); // 默认播放第一集
+            playEpisode(tracks[0].url, tracks[0].ep, 0); 
         } else {
-            alert('未解析到播放列表');
+            alert('未解析到播放列表，可能需要 VIP 或原网站结构已更改。');
         }
     }
 
@@ -213,13 +229,15 @@
     }
 
     async function playEpisode(pageUrl, ep, index) {
-        // 更新选集 UI 状态
         document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('ep-btn-' + index).classList.add('active');
 
-        // 解析真实 m3u8 地址
+        // 获取视频播放页源码
         const html = await fetchHtml(pageUrl);
+        if (!html) return;
+        
         let playUrl = '';
+        // 视频直链在 JS 变量里，只能用正则提取
         const m = html.match(/id="videoInitialData"[^>]*>([\s\S]*?)<\/script>/);
         if (m) {
             try {
@@ -227,15 +245,16 @@
                 const srcs = data.epPlaySrcs || {};
                 playUrl = srcs[ep] || data.videoSrc || '';
                 playUrl = playUrl.replace(/\\u0026/g, '&');
-            } catch (e) {}
+            } catch (e) {
+                console.error("解析视频JSON出错", e);
+            }
         }
 
         if (!playUrl) {
-            alert('获取视频源失败');
+            alert('获取视频源 M3U8 失败！');
             return;
         }
 
-        // 调用播放器
         initHlsPlayer(playUrl);
     }
 
@@ -252,8 +271,14 @@
             hls.on(Hls.Events.MANIFEST_PARSED, function() {
                 video.play();
             });
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                if (data.fatal) {
+                    console.error("HLS Error:", data);
+                    alert("视频流加载失败，可能被防盗链拦截。");
+                }
+            });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Safari 原生支持
+            // Safari 浏览器
             video.src = url;
             video.addEventListener('loadedmetadata', function() {
                 video.play();
@@ -271,9 +296,8 @@
         }
     }
 
-    // 初始化加载首页
+    // 初始化
     window.onload = loadHome;
-
 </script>
 </body>
 </html>
