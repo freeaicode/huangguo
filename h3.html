@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <meta name="referrer" content="no-referrer">
     <title>黄果短剧 - 沉浸式短剧版</title>
+    <!-- 引入播放及解密依赖 -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
     <style>
@@ -54,16 +55,24 @@
         /* ==================== 沉浸式短剧播放页 ==================== */
         #player-view { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #000; z-index: 1000; overflow: hidden; }
         
-        .video-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; display: flex; justify-content: center; align-items: center; }
-        .video-layer video, .video-layer iframe { width: 100%; height: 100%; border: none; object-fit: cover; }
+        /* 视频图层: 使用 contain 保证横竖屏自适应，绝不裁切画面 */
+        .video-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; display: flex; justify-content: center; align-items: center; background: #000; }
+        .video-layer video, .video-layer iframe { width: 100%; height: 100%; border: none; object-fit: contain; }
         
-        .player-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; transition: opacity 0.3s ease; pointer-events: none; filter: brightness(0.85); background: #000; }
+        /* 播放器封面: 同样使用 contain 防止封面裁切 */
+        .player-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; transition: opacity 0.3s ease; pointer-events: none; filter: brightness(0.85); background: #000; }
         .player-poster.hidden { opacity: 0; }
 
+        /* 沉浸式 UI 图层 */
         .ui-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        
+        /* 允许用户点击的元素开启 pointer-events */
         .ui-top, .ui-right, .ui-bottom-controls, .click-layer { pointer-events: auto; }
+        
+        /* 中间透明点击层（用于原生视频点击暂停/播放） */
         .click-layer { position: absolute; inset: 0; z-index: -1; }
 
+        /* 顶部导航 */
         .ui-top { padding: 45px 15px 15px; display: flex; align-items: center; gap: 12px; background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%); }
         .ui-back { width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: 300; cursor: pointer; color: #fff; }
         .ui-logo-box { display: flex; align-items: center; gap: 6px; }
@@ -74,6 +83,7 @@
         .ui-logo-text b span { color: var(--yellow); font-size: 10px; vertical-align: top; margin-left: 2px;}
         .ui-logo-text small { font-size: 10px; color: rgba(255,255,255,0.8); font-family: monospace; }
 
+        /* 右侧互动区 */
         .ui-right { position: absolute; right: 12px; bottom: 130px; display: flex; flex-direction: column; gap: 20px; align-items: center; }
         .action-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: #fff; cursor: pointer; }
         .action-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; font-size: 18px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(4px); transition: transform 0.1s; }
@@ -81,19 +91,23 @@
         .action-item span { font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
         .speed-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.3); display: flex; justify-content: center; align-items: center; font-size: 13px; font-weight: bold; backdrop-filter: blur(4px); }
 
+        /* 底部信息区 */
         .ui-bottom { background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 40%, transparent 100%); padding-top: 40px; }
         .ui-info { padding: 0 15px 12px; width: 85%; }
         .ui-title { font-size: 18px; font-weight: bold; margin: 0 0 6px 0; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
         .ui-desc { font-size: 13px; color: rgba(255,255,255,0.8); margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
+        /* 进度条 */
         .ui-progress-bar { width: 100%; height: 2px; background: rgba(255,255,255,0.2); position: relative; margin-bottom: 5px; }
         .ui-progress-fill { height: 100%; background: var(--yellow); width: 0%; position: relative; }
         .ui-progress-dot { width: 8px; height: 8px; background: var(--yellow); border-radius: 50%; position: absolute; right: -4px; top: -3px; }
 
+        /* 底部选集控制栏 */
         .ui-bottom-controls { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px 25px; color: rgba(255,255,255,0.9); font-size: 13px; cursor: pointer; }
         .ui-ep-left { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .ui-ep-right { display: flex; align-items: center; gap: 15px; font-size: 16px; }
         
+        /* 中间播放/暂停大图标提示 */
         .play-indicator { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: rgba(0,0,0,0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 24px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
         .play-indicator.show { opacity: 1; }
 
@@ -122,6 +136,7 @@
 </head>
 <body>
 
+    <!-- 主页视图 -->
     <section id="home-view" class="view active">
         <header class="header">
             <div class="top">
@@ -143,10 +158,12 @@
         <main>
             <div id="loading" class="loading" style="display:none">正在加载数据...</div>
             <div class="grid" id="videoGrid"></div>
+            <!-- 分页控件 -->
             <div class="pagination" id="pagination" style="display:none;"></div>
         </main>
     </section>
 
+    <!-- 沉浸式短剧播放页视图 -->
     <section id="player-view" class="view">
         
         <div class="video-layer">
@@ -159,6 +176,7 @@
             <div class="click-layer" id="clickLayer"></div>
             <div class="play-indicator" id="playIndicator">▶</div>
 
+            <!-- 顶部导航 -->
             <div class="ui-top">
                 <div class="ui-back" onclick="navToHome()">‹</div>
                 <div class="ui-logo-box">
@@ -170,6 +188,7 @@
                 </div>
             </div>
 
+            <!-- 右侧互动按钮组 -->
             <div class="ui-right">
                 <div class="action-item" onclick="shareAction()">
                     <div class="action-icon" style="font-size:22px;">➦</div>
@@ -185,6 +204,7 @@
                 </div>
             </div>
 
+            <!-- 底部信息与控制条 -->
             <div class="ui-bottom">
                 <div class="ui-info">
                     <h2 class="ui-title" id="uiTitle">加载中...</h2>
@@ -209,6 +229,7 @@
         </div>
     </section>
 
+    <!-- 底部弹窗：选集与线路切换 -->
     <div class="sheet-backdrop" id="sheetBackdrop" onclick="toggleSheet()"></div>
     <div class="bottom-sheet" id="bottomSheet">
         <div class="sheet-header">
@@ -229,7 +250,8 @@
         </div>
     </div>
 
-    <textarea id="tailwind-player-tpl" style="display:none;">
+    <!-- Tailwind HLS 纯净播放器代码模板 (已调整为 object-fit: contain 適配橫版影片) -->
+<textarea id="tailwind-player-tpl" style="display:none;">
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -241,7 +263,8 @@
     <style>
         html, body { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; background: transparent; }
         .video-wrapper { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-        video { max-width: 100%; max-height: 100%; object-fit: cover; outline: none; width:100%; height:100%; }
+        /* 使用 contain 以自適應橫豎屏且絕不裁切 */
+        video { max-width: 100%; max-height: 100%; object-fit: contain; outline: none; width:100%; height:100%; }
     </style>
 </head>
 <body>
@@ -743,7 +766,6 @@
         document.getElementById('uiDesc').innerText = descEl ? descEl.textContent.trim() : rawTitle;
 
         const tracks = [];
-        // XPTV 式提取剧集：.hg-web-detail__ep-grid a
         doc.querySelectorAll('.hg-web-detail__ep-grid a').forEach(a => {
             const href = a.getAttribute('href');
             const eid = a.getAttribute('data-ep-id');
@@ -751,7 +773,6 @@
             if (href) tracks.push({ name: name, url: formatPageUrl(href), ep: eid || '1' });
         });
         
-        // 若没有列表，尝试寻找主播放按钮 (.hg-web-detail__play)
         if (!tracks.length) {
             const playBtn = doc.querySelector('a.hg-web-detail__play');
             if (playBtn) {
@@ -794,7 +815,6 @@
 
         const html = await fetchHtml(pageUrl);
         let playUrl = '';
-        // XPTV 式提取视频源：id="videoInitialData"
         const m = html.match(/id="videoInitialData"[^>]*>([\s\S]*?)<\/script>/);
         if (m) {
             try {
@@ -846,7 +866,6 @@
             const iframe = document.getElementById('iframePlayer');
             iframe.style.display = 'block';
             document.getElementById('clickLayer').style.pointerEvents = 'none';
-            // 第三方解析无法判定状态，直接隐藏封面
             document.getElementById('playerPoster').classList.add('hidden');
             iframe.src = iframeUrl;
         }
@@ -897,3 +916,4 @@
 </script>
 </body>
 </html>
+```<FollowUp>請問還有其他需要調整的地方嗎？</FollowUp>
