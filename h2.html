@@ -53,13 +53,42 @@
         .back{font-weight:600;cursor:pointer}
         .navtitle{max-width:230px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         
-        .player{position:sticky;top:48px;z-index:20;overflow:hidden;background:#000; display:flex; justify-content:center;}
-        .player video,.player iframe{display:none;width:100%;height:55vh;max-height:580px;border:0;object-fit:contain}
-        .player.portrait video,.player.portrait iframe{height:68vh}
-        .full{position:absolute;z-index:4;right:10px;top:10px;padding:5px 9px;color:#fff;background:rgba(0,0,0,.65);border:1px solid #555;border-radius:15px;font-size:11px}
+        .player{position:sticky;top:48px;z-index:20;overflow:hidden;background:#000; display:flex; justify-content:center; align-items:center;}
         
+        /* 【关键修改1：动态纵横比例设定】 */
+        .player video, .player iframe {
+            display: none;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9; /* 默认横屏比例 */
+            max-height: 580px;
+            border: 0;
+            object-fit: contain;
+        }
+        /* 竖屏 9:16 满屏占比限制，最高 75vh 保证下方按键不被挤出屏幕 */
+        .player.portrait video, .player.portrait iframe {
+            aspect-ratio: 9 / 16;
+            max-height: 75vh;
+            object-fit: cover; /* cover 保证竖屏完美撑满框 */
+        }
+        
+        /* 网页全屏 */
+        .full{position:absolute;z-index:4;right:10px;top:10px;padding:5px 9px;color:#fff;background:rgba(0,0,0,.65);border:1px solid #555;border-radius:15px;font-size:11px}
         .player.webfull{position:fixed;inset:0;top:0;z-index:9999;width:100vw;height:100dvh}
-        .player.webfull video,.player.webfull iframe{height:100%!important;max-height:none!important;background:#000!important;}
+        .player.webfull video, .player.webfull iframe {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: none !important;
+            aspect-ratio: auto !important;
+            object-fit: contain; 
+            background: #000 !important;
+        }
+        /* 竖屏网页全屏状态且设备本身也是竖向时，强行盖满全屏幕 */
+        @media (max-aspect-ratio: 1/1) {
+            .player.webfull.portrait video, .player.webfull.portrait iframe {
+                object-fit: cover;
+            }
+        }
         
         .debug{padding:8px 12px;overflow:hidden;color:var(--muted);background:#141722;font-size:12px;word-break:break-all;}
         .routes{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--card); flex-wrap:wrap;}
@@ -133,7 +162,7 @@
         </div>
     </section>
 
-    <!-- Tailwind HLS 纯净播放器代码模板 (已应用你的自定义背景与样式) -->
+    <!-- Tailwind HLS 纯净播放器代码模板 -->
 <textarea id="tailwind-player-tpl" style="display:none;">
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -144,32 +173,65 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
     <style>
-        /* 隐藏滚动条并支撑 100% 高度 */
-        html { height: 100%; overflow: hidden; }
+        /* 强制隐藏滚动条，严格锁定尺寸 */
+        html, body { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; }
         
-        /* 你提供的自定义样式 */
-        body { height: 100%; background: url(https://os.i.gtimg.cn/music/photo_new/T053XD01004EceXk15WTMG.png) no-repeat; background-size: 100% 100%; color: #fff; margin: auto; padding: 1em; display: table; user-select: none; box-sizing: border-box; font: lighter 24px "微软雅黑"; }
-        h1 { margin-top: 0; font-size: 3.5em; }
-        main { margin: 0 auto; text-align: center; display: table-cell; vertical-align: middle; position: relative; width: 100vw; height: 100vh; }
+        body { 
+            background: url(https://os.i.gtimg.cn/music/photo_new/T053XD01004EceXk15WTMG.png) no-repeat; 
+            background-size: 100% 100%; 
+            color: #fff; 
+            display: table; 
+            width: 100%;
+            height: 100%;
+            user-select: none; 
+            box-sizing: border-box; 
+            font: lighter 24px "微软雅黑"; 
+            padding: 1em; 
+        }
         
-        /* 确保视频撑满内容区域并居中 */
-        video { width: 100%; height: 100%; object-fit: contain; outline: none; }
+        main { 
+            display: table-cell; 
+            vertical-align: middle; 
+            text-align: center; 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+        }
+        
+        .video-wrapper {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; 
+            height: 100%;
+        }
+
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            outline: none; 
+        }
+        
+        /* 内部响应 iframe 尺寸：iframe 是竖直时(短剧)，应用 cover 撑满无黑边 */
+        @media (max-aspect-ratio: 1/1) {
+            video.is-portrait {
+                object-fit: cover;
+            }
+        }
     </style>
 </head>
 <body>
-    
     <main>
-        <!-- 状态提示框 -->
-        <div id="status-container" class="absolute top-4 left-4 right-4 z-20 hidden p-3 rounded-md text-sm border shadow-lg bg-black/80 text-white break-all text-center"></div>
+        <div class="video-wrapper">
+            <div id="status-container" class="absolute top-4 left-4 right-4 z-20 hidden p-3 rounded-md text-sm border shadow-lg bg-black/80 text-white break-all text-center"></div>
 
-        <!-- 加载动画 Overlay -->
-        <div id="loading-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 hidden">
-            <div class="w-10 h-10 border-4 border-gray-600 border-t-white rounded-full animate-spin mb-3"></div>
-            <span class="text-gray-300 font-medium text-xs">加载中...</span>
+            <div id="loading-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 hidden">
+                <div class="w-10 h-10 border-4 border-gray-600 border-t-white rounded-full animate-spin mb-3"></div>
+                <span class="text-gray-300 font-medium text-xs">加载中...</span>
+            </div>
+
+            <video id="video-player" controls playsinline></video>
         </div>
-
-        <!-- 纯净视频播放器 -->
-        <video id="video-player" controls playsinline></video>
     </main>
 
     <script>
@@ -190,6 +252,18 @@
             const toggleLoading = (show) => {
                 show ? loadingOverlay.classList.remove('hidden') : loadingOverlay.classList.add('hidden');
             };
+
+            /* 【关键修改2：获取元数据后，利用 postMessage 向父页面发送宽高信息】 */
+            video.addEventListener('loadedmetadata', function() {
+                const isPort = this.videoHeight > this.videoWidth;
+                if (isPort) {
+                    this.classList.add('is-portrait');
+                } else {
+                    this.classList.remove('is-portrait');
+                }
+                // 把竖屏状态发送给外部的 hg-4
+                window.parent.postMessage({ type: 'video-meta', isPortrait: isPort }, '*');
+            });
 
             const loadStream = (url) => {
                 if (!url) return;
@@ -240,7 +314,6 @@
             video.addEventListener('waiting', () => toggleLoading(true));
             video.addEventListener('playing', () => toggleLoading(false));
 
-            // 自动加载注入的 URL
             loadStream(streamUrl);
         });
     </script>
@@ -262,6 +335,18 @@
         { type: 'tailwind_hls', prefix: '' }, 
         { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
+
+    // ==================== 父页面监听 Iframe 通信 ====================
+    window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'video-meta') {
+            const container = document.getElementById('video-container');
+            if (e.data.isPortrait) {
+                container.classList.add('portrait');
+            } else {
+                container.classList.remove('portrait');
+            }
+        }
+    });
 
     // ==================== 图片解密核心 ====================
     const KEY = CryptoJS.enc.Utf8.parse('f5d965df75336270');
@@ -634,6 +719,7 @@
         iframe.style.display = 'none';
     }
 
+    // 【原生直连】获取到视频流后也会自动适配横竖屏框占比
     function initHlsPlayer(url) {
         const video = document.getElementById('videoPlayer');
         if (Hls.isSupported()) {
@@ -650,11 +736,13 @@
         }
     }
 
-    // 智能横竖屏适配
     document.getElementById('videoPlayer').addEventListener('loadedmetadata', function() {
         const container = document.getElementById('video-container');
-        if (this.videoHeight > this.videoWidth) container.classList.add('portrait');
-        else container.classList.remove('portrait');
+        if (this.videoHeight > this.videoWidth) {
+            container.classList.add('portrait');
+        } else {
+            container.classList.remove('portrait');
+        }
     });
 
     // ==================== 初始化 ====================
@@ -669,4 +757,3 @@
 </script>
 </body>
 </html>
-```<FollowUp>有什么可以帮你的吗？</FollowUp>
