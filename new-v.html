@@ -105,6 +105,55 @@
             margin: 0 auto;
         }
 
+        /* 网页全屏悬浮控制按钮 */
+        .web-fullscreen-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            user-select: none;
+        }
+        .web-fullscreen-btn:hover {
+            background: rgba(0, 0, 0, 0.85);
+            border-color: #fff;
+            transform: scale(1.05);
+        }
+
+        /* 网页全屏 CSS 核心代码 */
+        #video-container.web-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+            max-height: none !important;
+            z-index: 999999 !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            background: #000 !important;
+        }
+
+        #video-container.web-fullscreen video,
+        #video-container.web-fullscreen iframe {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
+        }
+
         /* 竖屏视频（如短剧/9:16视频）适配样式 */
         #video-container.portrait-mode {
             max-width: 420px; /* 桌面端限制宽度，居中美观 */
@@ -116,6 +165,7 @@
             max-height: 560px; 
             outline: none; 
             display: none; 
+            border: none;
             object-fit: contain; /* 保证视频保持原宽高比，不上拉变形 */
             background: #000;
         }
@@ -200,6 +250,11 @@
 
         <div class="player-card">
             <div id="video-container">
+                <!-- 网页全屏切换按钮 -->
+                <button class="web-fullscreen-btn" onclick="toggleWebFullscreen()" id="webFsBtn">
+                    <span>🖥️</span> <span id="webFsText">网页全屏</span>
+                </button>
+
                 <video id="videoPlayer" controls playsinline></video>
                 <iframe id="iframePlayer" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
             </div>
@@ -235,6 +290,31 @@
         { type: 'iframe', prefix: 'https://jx.jsonplayer.com/player/?url=' },
         { type: 'iframe', prefix: 'https://jx.aidouer.net/?url=' }
     ];
+
+    // 网页全屏切换逻辑
+    function toggleWebFullscreen() {
+        const container = document.getElementById('video-container');
+        const fsText = document.getElementById('webFsText');
+        const isFs = container.classList.toggle('web-fullscreen');
+
+        if (isFs) {
+            fsText.innerText = '退出全屏 (Esc)';
+            document.body.style.overflow = 'hidden'; // 避免背景滑动
+        } else {
+            fsText.innerText = '网页全屏';
+            document.body.style.overflow = '';
+        }
+    }
+
+    // 监听 Esc 退出网页全屏
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+            const container = document.getElementById('video-container');
+            if (container.classList.contains('web-fullscreen')) {
+                toggleWebFullscreen();
+            }
+        }
+    });
 
     // 路由/视图切换核心逻辑
     function showView(viewId) {
@@ -598,8 +678,12 @@
         video.removeAttribute('src'); 
         video.load(); 
         
-        // 重置播放器横竖屏样式状态
-        document.getElementById('video-container').classList.remove('portrait-mode');
+        // 重置全屏状态及样式
+        const container = document.getElementById('video-container');
+        if (container.classList.contains('web-fullscreen')) {
+            toggleWebFullscreen();
+        }
+        container.classList.remove('portrait-mode');
 
         document.getElementById('iframePlayer').src = '';
         document.getElementById('videoPlayer').style.display = 'none';
@@ -628,7 +712,6 @@
     document.getElementById('videoPlayer').addEventListener('loadedmetadata', function() {
         const videoContainer = document.getElementById('video-container');
         if (this.videoWidth && this.videoHeight) {
-            // 当视频高度大于宽度时，判断为竖屏视频
             if (this.videoHeight > this.videoWidth) {
                 videoContainer.classList.add('portrait-mode');
             } else {
