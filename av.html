@@ -11,7 +11,7 @@
 *{box-sizing:border-box}
 body{margin:0 auto;max-width:520px;min-height:100vh;background:var(--bg);color:var(--text);font:14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .view{display:none}.view.active{display:block}
-.header{position:sticky;top:0;z-index:30;background:rgba(11,12,16,.96);backdrop-filter:blur(12px);padding:10px 14px;border-bottom:1px solid var(--line)}
+.header{position:sticky;top:0;z-index:30;background:rgba(11,12,16,.96);backdrop-filter:blur(12px);padding:10px 14px 6px;border-bottom:1px solid var(--line)}
 .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .brand{font-size:17px;font-weight:800;cursor:pointer}.brand b{color:var(--pink)}
 button{font:inherit;cursor:pointer}
@@ -21,9 +21,14 @@ button{font:inherit;cursor:pointer}
 .search input{flex:1;min-width:0;color:#fff;background:transparent;border:0;outline:0}
 .search button{color:var(--pink);border:0;background:transparent;font-weight:700}
 .tabs,.episodes{display:flex;gap:8px;overflow:auto}
-.tabs{padding-top:9px}.tabs::-webkit-scrollbar,.episodes::-webkit-scrollbar{display:none}
+.tabs{padding:9px 0 6px}.tabs::-webkit-scrollbar,.episodes::-webkit-scrollbar{display:none}
 .tab{white-space:nowrap;padding:5px 12px;border-radius:16px;background:transparent;border-color:transparent}
 .tab.active,.route.active{color:#fff;background:var(--pink);border-color:var(--pink)}
+.routes-bar{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 0;scrollbar-width:none}
+.routes-bar::-webkit-scrollbar{display:none}
+.routes-label{font-size:11px;color:#fbbf24;white-space:nowrap;font-weight:600}
+.node-btn{padding:3px 9px;border-radius:12px;font-size:11px;white-space:nowrap}
+.node-btn.active{background:var(--pink);border-color:var(--pink);color:#fff}
 main{padding:12px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .card{overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:7px;cursor:pointer;position:relative}
@@ -34,7 +39,7 @@ main{padding:12px}
 .score{right:4px;bottom:4px;background:rgba(255,51,88,.9)}
 .info{padding:7px 8px}
 .name{min-height:32px;font-size:12px;font-weight:600;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.loading,.error{text-align:center;padding:36px 12px;color:var(--muted)}
+.loading,.error{text-align:center;padding:30px 12px;color:var(--muted)}
 .error{color:#f87171}
 .pagination{display:flex;justify-content:center;gap:7px;align-items:center;padding:20px 0}
 .pagebtn{padding:6px 10px;border-radius:6px;font-size:12px}
@@ -77,8 +82,8 @@ main{padding:12px}
 .buttons{display:flex;justify-content:flex-end;gap:8px}
 .buttons button{padding:7px 13px;color:#fff;background:var(--card2);border:1px solid var(--line);border-radius:5px}
 .buttons .save{background:var(--pink);border-color:var(--pink)}
-.nodes-bar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px}
-.node-btn{padding:5px 10px;border-radius:4px;font-size:11px;color:#fff;background:var(--card2)}
+.diag-panel{margin-top:14px;padding:12px;background:#12151e;border:1px solid var(--line);border-radius:8px;text-align:left;font-size:12px;color:var(--muted);line-height:1.6}
+.diag-panel pre{margin:6px 0 0;padding:8px;background:#090a0f;border-radius:4px;white-space:pre-wrap;color:#94a3b8;font-size:11px;max-height:150px;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -92,7 +97,6 @@ main{padding:12px}
       ⌕<input id="search" placeholder="搜索短剧、漫剧关键词" onkeydown="if(event.key==='Enter')searchNow()">
       <button onclick="searchNow()">搜索</button>
     </div>
-    <!-- 准确对齐原站分类标识 -->
     <div class="tabs">
       <button class="tab active" data-x="home" onclick="switchTab('home')">首页推荐</button>
       <button class="tab" data-x="ai-duanju" onclick="switchTab('ai-duanju')">AI短剧</button>
@@ -100,6 +104,14 @@ main{padding:12px}
       <button class="tab" data-x="ai-huanlian" onclick="switchTab('ai-huanlian')">AI换脸</button>
       <button class="tab" data-x="ai-mogai" onclick="switchTab('ai-mogai')">AI魔改</button>
       <button class="tab" data-x="ranks/hot" onclick="switchTab('ranks/hot')">排行榜</button>
+    </div>
+    <div class="routes-bar">
+      <span class="routes-label">⚡ 换线:</span>
+      <button class="node-btn active" id="btn-ufepzk" onclick="quickSwitch('https://ufepzk.xxpofweu.cc')">ufepzk线路</button>
+      <button class="node-btn" id="btn-dlvd" onclick="quickSwitch('https://dlvd.xxpofweu.cc')">dlvd线路</button>
+      <button class="node-btn" id="btn-vzb1e" onclick="quickSwitch('https://vzb1e.xxpofweu.cc')">vzb1e线路</button>
+      <button class="node-btn" id="btn-huangguo10" onclick="quickSwitch('https://huangguo10.com')">主站huangguo10</button>
+      <button class="node-btn" id="btn-ni6b" onclick="quickSwitch('https://ni6b.xxpofweu.cc')">ni6b线路</button>
     </div>
   </header>
   <main>
@@ -143,14 +155,6 @@ main{padding:12px}
     <input id="proxy">
     <label>目标站域名</label>
     <input id="site">
-    <label>一键切换当前可用节点：</label>
-    <div class="nodes-bar">
-      <button class="node-btn" onclick="applyNode('https://ufepzk.xxpofweu.cc')">ufepzk线路</button>
-      <button class="node-btn" onclick="applyNode('https://ni6b.xxpofweu.cc')">ni6b线路</button>
-      <button class="node-btn" onclick="applyNode('https://dlvd.xxpofweu.cc')">dlvd线路</button>
-      <button class="node-btn" onclick="applyNode('https://vzb1e.xxpofweu.cc')">vzb1e线路</button>
-      <button class="node-btn" onclick="applyNode('https://huangguo10.com')">huangguo10主站</button>
-    </div>
     <label>公共解析接口</label>
     <input id="parser">
     <div class="buttons">
@@ -165,15 +169,20 @@ const DEF_SITE = 'https://ufepzk.xxpofweu.cc';
 const DEF_PROXY = 'https://hg-img.bobox.de5.net/?url=';
 const DEF_PARSER = 'https://jx.playerjy.com/?url=';
 
-let SITE = (localStorage.getItem('hg_site') || DEF_SITE).replace(/\/+$/, '');
-let PROXY = localStorage.getItem('hg_proxy') ?? DEF_PROXY;
-let PARSER = localStorage.getItem('hg_parser') || DEF_PARSER;
+// 强制清理历史导致拦截的旧域名
+let rawSite = localStorage.getItem('hg_site');
+if (!rawSite || rawSite.includes('ni6b') || rawSite.includes('huangguoai.com')) {
+  rawSite = DEF_SITE;
+  localStorage.setItem('hg_site', DEF_SITE);
+}
+let SITE = rawSite.replace(/\/+$/, '');
+let PROXY = (localStorage.getItem('hg_proxy') ?? DEF_PROXY).trim();
+let PARSER = (localStorage.getItem('hg_parser') || DEF_PARSER).trim();
 
 let category = 'home', pg = 1, dramaId = '', dramaTitle = '', tracks = [], current = 0, source = '', route = 0, hls = null;
 const $ = id => document.getElementById(id);
 const cache = new Map();
 
-// 封面 AES-128-CBC 密钥
 const KEY = CryptoJS.enc.Utf8.parse('f5d965df75336270');
 const IV = CryptoJS.enc.Utf8.parse('97b60394abc2fbe1');
 
@@ -195,7 +204,7 @@ async function proxyFetch(u){
   return await res.text();
 }
 
-// 核心分类与分页路径构造函数
+// 严格还原原站真实分类路由
 function getPath(c, p){
   if (c === 'home') {
     return p === 1 ? SITE + '/' : SITE + '/ai-duanju/' + p + '/';
@@ -203,16 +212,16 @@ function getPath(c, p){
   if (c.includes('rank')) {
     return SITE + '/ranks/hot/';
   }
-  // ai-duanju, ai-manju, ai-huanlian, ai-mogai
   return p === 1 ? SITE + '/' + c + '/' : SITE + '/' + c + '/' + p + '/';
 }
 
-// 结构提取：精准匹配短剧卡片与 /detail/ 结构
+// 弹性卡片解析器
 function parseCards(html){
   if (!html) return [];
   const list = [], seen = {};
   
-  const cardRegex = /<(?:div|a|li)\s+[^>]*class="[^"]*\bhg-drama-card\b[^"]*"[^>]*>/gi;
+  // 规则 1：按 .hg-drama-card 切片提取
+  const cardRegex = /<(?:div|a|li)\s+[^>]*class=["'][^"']*\bhg-drama-card\b[^"']*["'][^>]*>/gi;
   const starts = [];
   let m;
   while ((m = cardRegex.exec(html)) !== null) starts.push(m.index);
@@ -243,7 +252,36 @@ function parseCards(html){
     }
   }
 
-  // 兜底提取规则
+  // 规则 2：DOM 选择器提取
+  if (!list.length) {
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const cards = doc.querySelectorAll('.hg-drama-card, [class*="drama-card"]');
+      cards.forEach(el => {
+        const link = el.querySelector('a[href*="/detail/"]') || el.closest('a[href*="/detail/"]') || el;
+        const href = link.getAttribute('href') || '';
+        const idM = href.match(/\/detail\/(\d+)/i);
+        if (!idM || seen[idM[1]]) return;
+        const vid = idM[1];
+        seen[vid] = true;
+
+        const titleEl = el.querySelector('.hg-drama-card__title, [class*="title"]') || link;
+        const imgEl = el.querySelector('img[data-src], img[src]');
+        const epEl = el.querySelector('[class*="episode"]');
+        const scEl = el.querySelector('[class*="score"]');
+
+        list.push({
+          id: vid,
+          name: txt(titleEl ? titleEl.textContent : '') || ('短剧 ' + vid),
+          pic: cleanUrl(imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : ''),
+          ep: epEl ? txt(epEl.textContent) : '',
+          score: scEl ? txt(scEl.textContent) : ''
+        });
+      });
+    } catch(e){}
+  }
+
+  // 规则 3：全网页链接深度扫描兜底
   if (!list.length) {
     const linkRegex = /<a\s+[^>]*href=["']([^"']*?\/detail\/(\d+)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
     while ((m = linkRegex.exec(html)) !== null) {
@@ -269,7 +307,7 @@ function parseCards(html){
 // 排行榜解析
 function parseRanks(html){
   const list = [], seen = {};
-  const reItem = /<(?:div|a|li)\s+[^>]*class="[^"]*\bhg-rank-item\b[^"]*"[^>]*>/gi;
+  const reItem = /<(?:div|a|li)\s+[^>]*class=["'][^"']*\bhg-rank-item\b[^"']*["'][^>]*>/gi;
   const starts = [];
   let m;
   while ((m = reItem.exec(html)) !== null) starts.push(m.index);
@@ -296,7 +334,7 @@ function parseRanks(html){
   return list;
 }
 
-// 封面解密
+// 封面 AES 解密
 function decrypt(ab){
   const u = new Uint8Array(ab);
   const plain = (u[0] === 255 && u[1] === 216) || (u[0] === 137 && u[1] === 80) || (u[0] === 82 && u[1] === 73);
@@ -391,19 +429,51 @@ async function loadList(c, p = 1){
   pg = p;
   $('list').innerHTML = `<div class="loading">正在加载中...</div>`;
   renderPages(false);
+  updateRouteBarUI();
+
+  const targetUrl = getPath(c, p);
+  let html = '';
   try {
-    const targetUrl = getPath(c, p);
-    const html = await proxyFetch(targetUrl);
+    html = await proxyFetch(targetUrl);
     const items = c.includes('rank') ? parseRanks(html) : parseCards(html);
     if (!items || !items.length) {
-      $('list').innerHTML = `<div class="error">该分类下暂无剧集数据。<br><small style="color:var(--dim)">请检查网络或点击右上角 ⚙ 切换其他可用线路</small></div>`;
+      showDiagnostic(targetUrl, html, '未匹配到短剧卡片');
       return;
     }
     c.includes('rank') ? renderRank(items) : renderGrid(items);
     renderPages(!c.includes('rank'));
   } catch (e) {
-    $('list').innerHTML = `<div class="error">请求失败: ${e.message}<br><small style="color:var(--dim)">请检查代理设置或目标站点</small></div>`;
+    showDiagnostic(targetUrl, html, e.message);
   }
+}
+
+function showDiagnostic(targetUrl, rawHtml, errorMsg){
+  const preview = (rawHtml || '').slice(0, 300).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  $('list').innerHTML = `
+    <div class="error" style="font-weight:700;font-size:15px;margin-bottom:6px">❌ 无法获取视频列表</div>
+    <div style="color:var(--muted);font-size:12px;margin-bottom:12px">请尝试点击上方导航栏的【换线】按钮切换节点。</div>
+    <div class="diag-panel">
+      <div><b>当前请求目标：</b>${targetUrl}</div>
+      <div><b>当前代理接口：</b>${PROXY || '(直连)'}</div>
+      <div><b>返回字节大小：</b>${(rawHtml || '').length} 字符</div>
+      ${errorMsg ? `<div style="color:#f87171"><b>异常状态：</b>${errorMsg}</div>` : ''}
+      <div style="margin-top:6px"><b>响应内容前 300 字：</b></div>
+      <pre>${preview || '(响应完全空白，请检查代理是否连通)'}</pre>
+    </div>
+  `;
+}
+
+function updateRouteBarUI(){
+  document.querySelectorAll('.routes-bar .node-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('onclick').includes(SITE));
+  });
+}
+
+function quickSwitch(newSite){
+  SITE = newSite.replace(/\/+$/, '');
+  localStorage.setItem('hg_site', SITE);
+  cache.clear();
+  loadList(category, 1);
 }
 
 function changePg(d){
@@ -423,13 +493,14 @@ async function searchNow(){
   if (!q) return;
   $('list').innerHTML = `<div class="loading">正在搜索: ${q}...</div>`;
   renderPages(false);
+  const searchUrl = SITE + '/search/video/' + encodeURIComponent(q) + '/';
+  let html = '';
   try {
-    const searchUrl = SITE + '/search/video/' + encodeURIComponent(q) + '/';
-    const html = await proxyFetch(searchUrl);
+    html = await proxyFetch(searchUrl);
     const items = parseCards(html);
-    items.length ? renderGrid(items) : ($('list').innerHTML = `<div class="loading">未找到“${q}”相关短剧</div>`);
+    items.length ? renderGrid(items) : showDiagnostic(searchUrl, html, '未搜索到结果');
   } catch (e) {
-    $('list').innerHTML = `<div class="error">搜索失败: ${e.message}</div>`;
+    showDiagnostic(searchUrl, html, e.message);
   }
 }
 
@@ -455,11 +526,11 @@ async function openDrama(id, targetEp){
   try {
     const detailUrl = SITE + '/detail/' + id + '/';
     const html = await proxyFetch(detailUrl);
-    const titleM = html.match(/class="[^"]*\bhg-web-detail__title\b[^"]*"[^>]*>([\s\S]*?)<\//i) || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const titleM = html.match(/class=["'][^"']*\bhg-web-detail__title\b[^"']*["'][^>]*>([\s\S]*?)<\//i) || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     dramaTitle = titleM ? txt(titleM[1]) : '短剧播放';
     
     tracks = [];
-    const gridM = html.match(/class="[^"]*\bhg-web-detail__ep-grid\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+    const gridM = html.match(/class=["'][^"']*\bhg-web-detail__ep-grid\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     if (gridM) {
       const are = /<a\b[^>]*>[\s\S]*?<\/a>/gi;
       let m;
@@ -474,7 +545,7 @@ async function openDrama(id, targetEp){
       }
     }
     if (!tracks.length) {
-      const playM = html.match(/class="[^"]*\bhg-web-detail__play\b[^"]*"[^>]*href=["']([^"']+)["']/i);
+      const playM = html.match(/class=["'][^"']*\bhg-web-detail__play\b[^"']*["'][^>]*href=["']([^"']+)["']/i);
       if (playM) tracks.push({ ep: '1', name: '第1集', url: cleanUrl(playM[1]) });
     }
     if (!tracks.length) throw new Error('未检索到可用集数');
@@ -510,7 +581,7 @@ async function playTargetEp(){
   $('debug').textContent = `正在提取 ${t.name} 真实视频源...`;
   try {
     const html = await proxyFetch(t.url);
-    const m = html.match(/id="videoInitialData"[^>]*>([\s\S]*?)<\/script>/i);
+    const m = html.match(/id=["']videoInitialData["'][^>]*>([\s\S]*?)<\/script>/i);
     if (!m) throw new Error('播放页缺少 videoInitialData 数据');
     const data = JSON.parse(m[1]);
     const srcs = data.epPlaySrcs || {};
@@ -589,7 +660,6 @@ function openSettings(){
   $('setting').classList.add('show');
 }
 function closeModal(id){ $(id).classList.remove('show'); }
-function applyNode(url){ $('site').value = url; }
 function saveSettings(){
   SITE = ($('site').value.trim() \vert{}\vert{} DEF_SITE).replace(/\/+$/, '');
   PROXY = $('proxy').value.trim();
